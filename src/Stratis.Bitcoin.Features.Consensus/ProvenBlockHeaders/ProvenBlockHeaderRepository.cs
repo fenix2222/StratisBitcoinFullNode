@@ -1,10 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using DBreeze;
-using DBreeze.DataTypes;
-using DBreeze.Utils;
+using LiteDB;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using Stratis.Bitcoin.Configuration;
@@ -26,7 +25,9 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
         /// <summary>
         /// Access to DBreeze database.
         /// </summary>
-        private readonly DBreezeEngine dbreeze;
+        private readonly LiteDatabase db;
+
+        private readonly BsonMapper mapper;
 
         /// <summary>
         /// Specification of the network the node runs on - RegTest/TestNet/MainNet.
@@ -43,6 +44,10 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
         /// </summary>
         private const string ProvenBlockHeaderTable = "ProvenBlockHeader";
         private const string BlockHashHeightTable = "BlockHashHeight";
+        
+        private LiteCollection<BsonDocument> ProvenBlockHeaderCollection => this.db.GetCollection(ProvenBlockHeaderTable);
+        
+        private LiteCollection<BsonDocument> BlockHashHeightCollection => this.db.GetCollection(BlockHashHeightTable);
 
         /// <summary>
         /// Current <see cref="ProvenBlockHeader"/> tip.
@@ -85,7 +90,9 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
 
             Directory.CreateDirectory(folder);
 
-            this.dbreeze = new DBreezeEngine(folder);
+            this.db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;");
+            this.mapper = BsonMapper.Global;
+            this.mapper.Entity<DbRecord>().Id(p => p.Key);
             this.network = network;
         }
 
@@ -94,21 +101,16 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
         {
             Task task = Task.Run(() =>
             {
-                using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
-                {
-                    this.TipHashHeight = this.GetTipHash(transaction);
+                this.TipHashHeight = this.GetTipHash();
 
-                    if (this.TipHashHeight != null)
-                        return;
+                if (this.TipHashHeight != null)
+                    return;
 
-                    var hashHeight = new HashHeightPair(this.network.GetGenesis().GetHash(), 0);
+                var hashHeight = new HashHeightPair(this.network.GetGenesis().GetHash(), 0);
 
-                    this.SetTip(transaction, hashHeight);
+                this.SetTip(hashHeight);
 
-                    transaction.Commit();
-
-                    this.TipHashHeight = hashHeight;
-                }
+                this.TipHashHeight = hashHeight;
             });
 
             return task;
@@ -119,19 +121,12 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
         {
             Task<ProvenBlockHeader> task = Task.Run(() =>
             {
-                using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
-                {
-                    transaction.SynchronizeTables(ProvenBlockHeaderTable);
+                var row = this.ProvenBlockHeaderCollection.FindById(BitConverter.GetBytes(blockHeight));
 
-                    transaction.ValuesLazyLoadingIsOn = false;
+                if (row != null)
+                    return this.dBreezeSerializer.Deserialize<ProvenBlockHeader>(row.ToDbRecord<byte[]>(this.mapper).Value);
 
-                    Row<byte[], byte[]> row = transaction.Select<byte[], byte[]>(ProvenBlockHeaderTable, blockHeight.ToBytes());
-
-                    if (row.Exists)
-                        return this.dBreezeSerializer.Deserialize<ProvenBlockHeader>(row.Value);
-
-                    return null;
-                }
+                return null;
             });
 
             return task;
@@ -149,18 +144,11 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
             {
                 this.logger.LogTrace("({0}.Count():{1})", nameof(headers), headers.Count());
 
-                using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
-                {
-                    transaction.SynchronizeTables(BlockHashHeightTable, ProvenBlockHeaderTable);
+                this.InsertHeaders(headers);
 
-                    this.InsertHeaders(transaction, headers);
+                this.SetTip(newTip);
 
-                    this.SetTip(transaction, newTip);
-
-                    transaction.Commit();
-
-                    this.TipHashHeight = newTip;
-                }
+                this.TipHashHeight = newTip;
             });
 
             return task;
@@ -171,11 +159,11 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
         /// </summary>
         /// <param name="transaction"> Open DBreeze transaction.</param>
         /// <param name="newTip"> Hash height pair of the new block tip.</param>
-        private void SetTip(DBreeze.Transactions.Transaction transaction, HashHeightPair newTip)
+        private void SetTip(HashHeightPair newTip)
         {
             Guard.NotNull(newTip, nameof(newTip));
 
-            transaction.Insert(BlockHashHeightTable, blockHashHeightKey, this.dBreezeSerializer.Serialize(newTip));
+            this.BlockHashHeightCollection.Insert(new DbRecord<byte[], byte[]>(blockHashHeightKey, this.dBreezeSerializer.Serialize(newTip)).ToDocument(this.mapper));
         }
 
         /// <summary>
@@ -183,10 +171,10 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
         /// </summary>
         /// <param name="transaction"> Open DBreeze transaction.</param>
         /// <param name="headers"> List of <see cref="ProvenBlockHeader"/> items to save.</param>
-        private void InsertHeaders(DBreeze.Transactions.Transaction transaction, SortedDictionary<int, ProvenBlockHeader> headers)
+        private void InsertHeaders(SortedDictionary<int, ProvenBlockHeader> headers)
         {
             foreach (KeyValuePair<int, ProvenBlockHeader> header in headers)
-                transaction.Insert(ProvenBlockHeaderTable, header.Key.ToBytes(), this.dBreezeSerializer.Serialize(header.Value));
+                this.ProvenBlockHeaderCollection.Insert(new DbRecord<byte[], byte[]>(BitConverter.GetBytes(header.Key), this.dBreezeSerializer.Serialize(header.Value)).ToDocument(this.mapper));
 
             // Store the latest ProvenBlockHeader in memory.
             this.provenBlockHeaderTip = headers.Last().Value;
@@ -197,14 +185,14 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
         /// </summary>
         /// <param name="transaction"> Open DBreeze transaction.</param>
         /// <returns> Hash of blocks current tip.</returns>
-        private HashHeightPair GetTipHash(DBreeze.Transactions.Transaction transaction)
+        private HashHeightPair GetTipHash()
         {
             HashHeightPair tipHash = null;
 
-            Row<byte[], byte[]> row = transaction.Select<byte[], byte[]>(BlockHashHeightTable, blockHashHeightKey);
+            var row = this.BlockHashHeightCollection.FindById(blockHashHeightKey);
 
-            if (row.Exists)
-                tipHash = this.dBreezeSerializer.Deserialize<HashHeightPair>(row.Value);
+            if (row != null)
+                tipHash = this.dBreezeSerializer.Deserialize<HashHeightPair>(row.ToDbRecord<byte[]>(this.mapper).Value);
 
             return tipHash;
         }
@@ -212,7 +200,7 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
         /// <inheritdoc />
         public void Dispose()
         {
-            this.dbreeze?.Dispose();
+            this.db?.Dispose();
         }
     }
 }

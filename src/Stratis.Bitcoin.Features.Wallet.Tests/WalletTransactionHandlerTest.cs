@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using DBreeze.Utils;
 using FluentAssertions;
 using Moq;
 using NBitcoin;
@@ -254,7 +253,7 @@ namespace Stratis.Bitcoin.Features.Wallet.Tests
         {
             WalletTransactionHandlerTestContext testContext = SetupWallet();
 
-            byte[] eightyOneBytes = Encoding.UTF8.GetBytes(this.costlyOpReturnData).Concat(Convert.ToByte(1));
+            byte[] eightyOneBytes = Encoding.UTF8.GetBytes(this.costlyOpReturnData).Concat(this.ToBytes(1)).ToArray();
             string tooLongOpReturnString = Encoding.UTF8.GetString(eightyOneBytes);
 
             TransactionBuildContext context = CreateContext(this.Network, testContext.WalletReference, "password", testContext.DestinationKeys.PubKey.ScriptPubKey, new Money(7500), FeeType.Low, 0, tooLongOpReturnString);
@@ -262,6 +261,13 @@ namespace Stratis.Bitcoin.Features.Wallet.Tests
                 .Should().Throw<ArgumentOutOfRangeException>()
                 .And.Message.Should().Contain(" maximum size of 83");
 
+        }
+        
+        private byte[] ToBytes(int value)
+        {
+            byte[] key = BitConverter.GetBytes(value);
+            if (BitConverter.IsLittleEndian) Array.Reverse(key);
+            return key;
         }
 
         [Fact]

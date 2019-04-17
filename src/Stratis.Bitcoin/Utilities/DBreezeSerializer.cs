@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using DBreeze.Utils;
 using NBitcoin;
 
 namespace Stratis.Bitcoin.Utilities
@@ -35,7 +34,12 @@ namespace Stratis.Bitcoin.Utilities
                 return u160.ToBytes();
 
             if (obj is uint u32)
-                return u32.ToBytes();
+            {
+                byte[] intBytes = BitConverter.GetBytes(u32);
+                if (BitConverter.IsLittleEndian) Array.Reverse(intBytes);
+
+                return intBytes;
+            }
 
             if (obj is IEnumerable<object> collection)
             {

@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using DBreeze;
-using DBreeze.DataTypes;
+using LiteDB;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using Stratis.Bitcoin.Configuration;
@@ -30,7 +29,9 @@ namespace Stratis.Bitcoin.Base
         private readonly ILogger logger;
 
         /// <summary>Access to DBreeze database.</summary>
-        private readonly DBreezeEngine dbreeze;
+        private readonly string folder;
+        private readonly BsonMapper mapper;
+        private readonly LiteDatabase db;
 
         private BlockLocator locator;
 
@@ -43,7 +44,9 @@ namespace Stratis.Bitcoin.Base
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
 
             Directory.CreateDirectory(folder);
-            this.dbreeze = new DBreezeEngine(folder);
+            this.mapper = BsonMapper.Global;
+            this.mapper.Entity<DbRecord<int>>().Id(p => p.Key);
+            this.db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;");
         }
 
         public ChainRepository(DataFolder dataFolder, ILoggerFactory loggerFactory, DBreezeSerializer dBreezeSerializer)
@@ -56,37 +59,35 @@ namespace Stratis.Bitcoin.Base
         {
             Task<ChainedHeader> task = Task.Run(() =>
             {
-                using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
+                LiteCollection<BsonDocument> collection = this.db.GetCollection("Chain");
+                ChainedHeader tip = null;
+                var record = collection.FindById(0);
+
+                if (record == null)
+                    return genesisHeader;
+
+                var value = this.mapper.ToObject<DbRecord<int>>(record).Value;
+                BlockHeader previousHeader = this.dBreezeSerializer.Deserialize<BlockHeader>(value);
+                Guard.Assert(previousHeader.GetHash() == genesisHeader.HashBlock); // can't swap networks
+
+                foreach (DbRecord<int> row in collection.FindAll().Select(d => this.mapper.ToObject<DbRecord<int>>(d)).Skip(1))
                 {
-                    transaction.ValuesLazyLoadingIsOn = false;
-                    ChainedHeader tip = null;
-                    Row<int, byte[]> firstRow = transaction.Select<int, byte[]>("Chain", 0);
+                    if ((tip != null) && (previousHeader.HashPrevBlock != tip.HashBlock))
+                        break;
 
-                    if (!firstRow.Exists)
-                        return genesisHeader;
-
-                    BlockHeader previousHeader = this.dBreezeSerializer.Deserialize<BlockHeader>(firstRow.Value);
-                    Guard.Assert(previousHeader.GetHash() == genesisHeader.HashBlock); // can't swap networks
-
-                    foreach (Row<int, byte[]> row in transaction.SelectForwardSkip<int, byte[]>("Chain", 1))
-                    {
-                        if ((tip != null) && (previousHeader.HashPrevBlock != tip.HashBlock))
-                            break;
-
-                        BlockHeader blockHeader = this.dBreezeSerializer.Deserialize<BlockHeader>(row.Value);
-                        tip = new ChainedHeader(previousHeader, blockHeader.HashPrevBlock, tip);
-                        previousHeader = blockHeader;
-                    }
-
-                    if (previousHeader != null)
-                        tip = new ChainedHeader(previousHeader, previousHeader.GetHash(), tip);
-
-                    if (tip == null)
-                        tip = genesisHeader;
-
-                    this.locator = tip.GetLocator();
-                    return tip;
+                    BlockHeader blockHeader = this.dBreezeSerializer.Deserialize<BlockHeader>(row.Value);
+                    tip = new ChainedHeader(previousHeader, blockHeader.HashPrevBlock, tip);
+                    previousHeader = blockHeader;
                 }
+
+                if (previousHeader != null)
+                    tip = new ChainedHeader(previousHeader, previousHeader.GetHash(), tip);
+
+                if (tip == null)
+                    tip = genesisHeader;
+
+                this.locator = tip.GetLocator();
+                return tip;
             });
 
             return task;
@@ -99,44 +100,42 @@ namespace Stratis.Bitcoin.Base
 
             Task task = Task.Run(() =>
             {
-                using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
+                LiteCollection<BsonDocument> collection = this.db.GetCollection("Chain");
+                ChainedHeader fork = this.locator == null ? null : chainIndexer.FindFork(this.locator);
+                ChainedHeader tip = chainIndexer.Tip;
+                ChainedHeader toSave = tip;
+
+                var headers = new List<ChainedHeader>();
+                while (toSave != fork)
                 {
-                    ChainedHeader fork = this.locator == null ? null : chainIndexer.FindFork(this.locator);
-                    ChainedHeader tip = chainIndexer.Tip;
-                    ChainedHeader toSave = tip;
-
-                    var headers = new List<ChainedHeader>();
-                    while (toSave != fork)
-                    {
-                        headers.Add(toSave);
-                        toSave = toSave.Previous;
-                    }
-
-                    // DBreeze is faster on ordered insert.
-                    IOrderedEnumerable<ChainedHeader> orderedChainedHeaders = headers.OrderBy(b => b.Height);
-                    foreach (ChainedHeader block in orderedChainedHeaders)
-                    {
-                        BlockHeader header = block.Header;
-                        if (header is ProvenBlockHeader)
-                        {
-                            // copy the header parameters, untill we dont make PH a normal header we store it in its own repo.
-                            BlockHeader newHeader = chainIndexer.Network.Consensus.ConsensusFactory.CreateBlockHeader();
-                            newHeader.Bits = header.Bits;
-                            newHeader.Time = header.Time;
-                            newHeader.Nonce = header.Nonce;
-                            newHeader.Version = header.Version;
-                            newHeader.HashMerkleRoot = header.HashMerkleRoot;
-                            newHeader.HashPrevBlock = header.HashPrevBlock;
-
-                            header = newHeader;
-                        }
-
-                        transaction.Insert("Chain", block.Height, this.dBreezeSerializer.Serialize(header));
-                    }
-
-                    this.locator = tip.GetLocator();
-                    transaction.Commit();
+                    headers.Add(toSave);
+                    toSave = toSave.Previous;
                 }
+
+                // DBreeze is faster on ordered insert.
+                IOrderedEnumerable<ChainedHeader> orderedChainedHeaders = headers.OrderBy(b => b.Height);
+                foreach (ChainedHeader block in orderedChainedHeaders)
+                {
+                    BlockHeader header = block.Header;
+                    if (header is ProvenBlockHeader)
+                    {
+                        // copy the header parameters, untill we dont make PH a normal header we store it in its own repo.
+                        BlockHeader newHeader = chainIndexer.Network.Consensus.ConsensusFactory.CreateBlockHeader();
+                        newHeader.Bits = header.Bits;
+                        newHeader.Time = header.Time;
+                        newHeader.Nonce = header.Nonce;
+                        newHeader.Version = header.Version;
+                        newHeader.HashMerkleRoot = header.HashMerkleRoot;
+                        newHeader.HashPrevBlock = header.HashPrevBlock;
+
+                        header = newHeader;
+                    }
+
+                    BsonDocument document = this.mapper.ToDocument(new DbRecord<int> { Key = block.Height, Value = this.dBreezeSerializer.Serialize(header) });
+                    collection.Insert(document);
+                }
+
+                this.locator = tip.GetLocator();
             });
 
             return task;
@@ -145,7 +144,7 @@ namespace Stratis.Bitcoin.Base
         /// <inheritdoc />
         public void Dispose()
         {
-            this.dbreeze?.Dispose();
+            this.db?.Dispose();
         }
     }
 }

@@ -1,21 +1,26 @@
 ﻿using System.Collections.Generic;
 using System.IO;
-using DBreeze;
+using LiteDB;
 using NBitcoin;
 using Stratis.Bitcoin.Configuration;
+using Stratis.Bitcoin.Utilities;
 
 namespace Stratis.SmartContracts.Core.Receipts
 {
     public class PersistentReceiptRepository : IReceiptRepository
     {
         private const string TableName = "receipts";
-        private readonly DBreezeEngine engine;
+        private LiteDatabase db;
+        private readonly BsonMapper mapper;
+        private LiteCollection<BsonDocument> ReceiptsCollection => this.db.GetCollection("receipts");
 
         public PersistentReceiptRepository(DataFolder dataFolder)
         {
             string folder = dataFolder.SmartContractStatePath + TableName;
             Directory.CreateDirectory(folder);
-            this.engine = new DBreezeEngine(folder);
+            this.db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;");
+            this.mapper = BsonMapper.Global;
+            this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
         }
 
         // TODO: Handle pruning old data in case of reorg.
@@ -23,28 +28,23 @@ namespace Stratis.SmartContracts.Core.Receipts
         /// <inheritdoc />
         public void Store(IEnumerable<Receipt> receipts)
         {
-            using (DBreeze.Transactions.Transaction t = this.engine.GetTransaction())
+            foreach(Receipt receipt in receipts)
             {
-                foreach(Receipt receipt in receipts)
-                {
-                    t.Insert<byte[], byte[]>(TableName, receipt.TransactionHash.ToBytes(), receipt.ToStorageBytesRlp());
-                }
-                t.Commit();
+                this.ReceiptsCollection.Insert(
+                    new DbRecord<byte[], byte[]>(receipt.TransactionHash.ToBytes(), receipt.ToStorageBytesRlp())
+                        .ToDocument(this.mapper));
             }
         }
 
         /// <inheritdoc />
         public Receipt Retrieve(uint256 hash)
         {
-            using (DBreeze.Transactions.Transaction t = this.engine.GetTransaction())
-            {
-                byte[] result = t.Select<byte[], byte[]>(TableName, hash.ToBytes()).Value;
+            var result = this.ReceiptsCollection.FindById(hash.ToBytes());
 
-                if (result == null)
-                    return null;
+            if (result == null)
+                return null;
 
-                return Receipt.FromStorageBytesRlp(result);
-            }
+            return Receipt.FromStorageBytesRlp(result.ToDbRecord<byte[], byte[]>(this.mapper).Value);
         }
     }
 }

@@ -1,8 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using DBreeze;
-using DBreeze.DataTypes;
+using LiteDB;
 using NBitcoin;
 using Stratis.Bitcoin.Tests.Common.Logging;
 using Stratis.Bitcoin.Utilities;
@@ -20,15 +18,17 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             {
             }
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
 
-                Row<byte[], byte[]> blockRow = transaction.Select<byte[], byte[]>("Common", new byte[0]);
-                Row<byte[], bool> txIndexRow = transaction.Select<byte[], bool>("Common", new byte[1]);
+                BsonDocument blockRow = collection.FindById(new byte[0]);
+                BsonDocument txIndexRow = collection.FindById(new byte[1]);
 
-                Assert.Equal(this.Network.GetGenesis().GetHash(), this.DBreezeSerializer.Deserialize<HashHeightPair>(blockRow.Value).Hash);
-                Assert.False(txIndexRow.Value);
+                Assert.Equal(this.Network.GetGenesis().GetHash(), this.DBreezeSerializer.Deserialize<HashHeightPair>(blockRow.ToDbRecord<byte[], byte[]>(mapper).Value).Hash);
+                Assert.False(txIndexRow.ToDbRecord<byte[], bool>(mapper).Value);
             }
         }
 
@@ -37,25 +37,28 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
         {
             string dir = CreateTestDir(this);
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
 
-                transaction.Insert<byte[], byte[]>("Common", new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(new uint256(56), 1)));
-                transaction.Insert("Common", new byte[1], true);
-                transaction.Commit();
+                collection.Insert(new DbRecord<byte[], byte[]>(new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(new uint256(56), 1))).ToDocument(mapper));
+                collection.Insert(new DbRecord<byte[], bool>(new byte[1], true).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
             {
             }
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
 
-                Row<byte[], byte[]> blockRow = transaction.Select<byte[], byte[]>("Common", new byte[0]);
-                Row<byte[], bool> txIndexRow = transaction.Select<byte[], bool>("Common", new byte[1]);
+                var blockRow = collection.FindById(new byte[0]).ToDbRecord<byte[]>(mapper);
+                var txIndexRow = collection.FindById(new byte[1]).ToDbRecord<byte[], bool>(mapper);
 
                 Assert.Equal(new HashHeightPair(new uint256(56), 1), this.DBreezeSerializer.Deserialize<HashHeightPair>(blockRow.Value));
                 Assert.True(txIndexRow.Value);
@@ -67,13 +70,14 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
         {
             string dir = CreateTestDir(this);
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
 
-                transaction.Insert<byte[], byte[]>("Common", new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1)));
-                transaction.Insert<byte[], bool>("Common", new byte[1], false);
-                transaction.Commit();
+                collection.Insert(new DbRecord<byte[], byte[]>(new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1))).ToDocument(mapper));
+                collection.Insert(new DbRecord<byte[], bool>(new byte[1], false).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -87,13 +91,15 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
         {
             string dir = CreateTestDir(this);
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
                 var blockId = new uint256(8920);
-                transaction.Insert<byte[], byte[]>("Common", new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1)));
-                transaction.Insert<byte[], bool>("Common", new byte[1], true);
-                transaction.Commit();
+                collection.Insert(new DbRecord<byte[], byte[]>(new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1))).ToDocument(mapper));
+                collection.Insert(new DbRecord<byte[], bool>(new byte[1], true).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -109,18 +115,22 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             Transaction trans = this.Network.CreateTransaction();
             trans.Version = 125;
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
                 Block block = this.Network.CreateBlock();
                 block.Header.GetHash();
                 block.Transactions.Add(trans);
 
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
-                transaction.Insert<byte[], byte[]>("Block", block.Header.GetHash().ToBytes(), block.ToBytes());
-                transaction.Insert<byte[], byte[]>("Transaction", trans.GetHash().ToBytes(), block.Header.GetHash().ToBytes());
-                transaction.Insert<byte[], byte[]>("Common", new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1)));
-                transaction.Insert<byte[], bool>("Common", new byte[1], true);
-                transaction.Commit();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                LiteCollection<BsonDocument> transCollection = engine.GetCollection("Transaction");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                blockCollection.Insert(new DbRecord<byte[], byte[]>(block.Header.GetHash().ToBytes(), block.ToBytes()).ToDocument(mapper));
+                transCollection.Insert(new DbRecord<byte[], byte[]>(trans.GetHash().ToBytes(), block.Header.GetHash().ToBytes()).ToDocument(mapper));
+                collection.Insert(new DbRecord<byte[], byte[]>(new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1))).ToDocument(mapper));
+                collection.Insert(new DbRecord<byte[], bool>(new byte[1], true).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -134,12 +144,14 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
         {
             string dir = CreateTestDir(this);
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
-                transaction.Insert<byte[], byte[]>("Common", new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1)));
-                transaction.Insert<byte[], bool>("Common", new byte[1], false);
-                transaction.Commit();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+                
+                collection.Insert(new DbRecord<byte[], byte[]>(new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1))).ToDocument(mapper));
+                collection.Insert(new DbRecord<byte[], bool>(new byte[1], false).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -153,12 +165,14 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
         {
             string dir = CreateTestDir(this);
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
-                transaction.Insert<byte[], byte[]>("Common", new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1)));
-                transaction.Insert<byte[], bool>("Common", new byte[1], true);
-                transaction.Commit();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                collection.Insert(new DbRecord<byte[], byte[]>(new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1))).ToDocument(mapper));
+                collection.Insert(new DbRecord<byte[], bool>(new byte[1], true).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -172,13 +186,18 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
         {
             string dir = CreateTestDir(this);
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
-                transaction.Insert<byte[], byte[]>("Transaction", new uint256(26).ToBytes(), new uint256(42).ToBytes());
-                transaction.Insert<byte[], byte[]>("Common", new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1)));
-                transaction.Insert<byte[], bool>("Common", new byte[1], true);
-                transaction.Commit();
+                LiteCollection<BsonDocument> commonCollection = engine.GetCollection("Common");
+                LiteCollection<BsonDocument> transCollection = engine.GetCollection("Transaction");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                transCollection.Insert(
+                    new DbRecord<byte[], byte[]>(new uint256(26).ToBytes(), new uint256(42).ToBytes())
+                        .ToDocument(mapper));
+                commonCollection.Insert(new DbRecord<byte[], byte[]>(new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1))).ToDocument(mapper));
+                commonCollection.Insert(new DbRecord<byte[], bool>(new byte[1], true).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -212,12 +231,14 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             block2.Transactions.Add(transaction);
             blocks.Add(block2);
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction trans = engine.GetTransaction();
-                trans.Insert<byte[], byte[]>("Common", new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1)));
-                trans.Insert<byte[], bool>("Common", new byte[1], true);
-                trans.Commit();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                collection.Insert(new DbRecord<byte[], byte[]>(new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(uint256.Zero, 1))).ToDocument(mapper));
+                collection.Insert(new DbRecord<byte[], bool>(new byte[1], true).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -225,13 +246,17 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
                 repository.PutBlocks(new HashHeightPair(nextBlockHash, 100), blocks);
             }
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction trans = engine.GetTransaction();
+                LiteCollection<BsonDocument> commonCollection = engine.GetCollection("Common");
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                LiteCollection<BsonDocument> transCollection = engine.GetCollection("Transaction");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
 
-                Row<byte[], byte[]> blockHashKeyRow = trans.Select<byte[], byte[]>("Common", new byte[0]);
-                Dictionary<byte[], byte[]> blockDict = trans.SelectDictionary<byte[], byte[]>("Block");
-                Dictionary<byte[], byte[]> transDict = trans.SelectDictionary<byte[], byte[]>("Transaction");
+                DbRecord<byte[], byte[]> blockHashKeyRow = commonCollection.FindById(new byte[0]).ToDbRecord<byte[], byte[]>(mapper);
+                Dictionary<byte[], byte[]> blockDict = blockCollection.FindAll().Select(i => i.ToDbRecord<byte[], byte[]>(mapper)).ToDictionary(i => i.Key, i => i.Value);
+                Dictionary<byte[], byte[]> transDict = transCollection.FindAll().Select(i => i.ToDbRecord<byte[], byte[]>(mapper)).ToDictionary(i => i.Key, i => i.Value);
 
                 Assert.Equal(new HashHeightPair(nextBlockHash, 100), this.DBreezeSerializer.Deserialize<HashHeightPair>(blockHashKeyRow.Value));
                 Assert.Equal(2, blockDict.Count);
@@ -255,11 +280,13 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
         public void SetTxIndexUpdatesTxIndex()
         {
             string dir = CreateTestDir(this);
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction trans = engine.GetTransaction();
-                trans.Insert<byte[], bool>("Common", new byte[1], true);
-                trans.Commit();
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                collection.Insert(new DbRecord<byte[], bool>(new byte[1], true).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -267,11 +294,12 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
                 repository.SetTxIndex(false);
             }
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction trans = engine.GetTransaction();
-
-                Row<byte[], bool> txIndexRow = trans.Select<byte[], bool>("Common", new byte[1]);
+                LiteCollection<BsonDocument> collection = engine.GetCollection("Common");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+                DbRecord<byte[], bool> txIndexRow = collection.FindById(new byte[1]).ToDbRecord<byte[], bool>(mapper);
                 Assert.False(txIndexRow.Value);
             }
         }
@@ -282,11 +310,13 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             string dir = CreateTestDir(this);
             Block block = this.Network.Consensus.ConsensusFactory.CreateBlock();
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
-                transaction.Insert<byte[], byte[]>("Block", block.GetHash().ToBytes(), block.ToBytes());
-                transaction.Commit();
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                blockCollection.Insert(new DbRecord<byte[], byte[]>(block.GetHash().ToBytes(), block.ToBytes()).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -308,12 +338,14 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
                 blocks[i].Header.HashPrevBlock = blocks[i - 1].Header.GetHash();
             }
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
                 for (int i = 0; i < blocks.Length; i++)
-                    transaction.Insert<byte[], byte[]>("Block", blocks[i].GetHash().ToBytes(), blocks[i].ToBytes());
-                transaction.Commit();
+                    blockCollection.Insert(new DbRecord<byte[], byte[]>(blocks[i].GetHash().ToBytes(), blocks[i].ToBytes()).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -343,11 +375,13 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             string dir = CreateTestDir(this);
             Block block = this.Network.Consensus.ConsensusFactory.CreateBlock();
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
-                transaction.Insert<byte[], byte[]>("Block", block.GetHash().ToBytes(), block.ToBytes());
-                transaction.Commit();
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                blockCollection.Insert(new DbRecord<byte[], byte[]>(block.GetHash().ToBytes(), block.ToBytes()).ToDocument(mapper));
             }
 
             using (IBlockRepository repository = this.SetupRepository(this.Network, dir))
@@ -374,13 +408,17 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             Block block = this.Network.CreateBlock();
             block.Transactions.Add(this.Network.CreateTransaction());
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction transaction = engine.GetTransaction();
-                transaction.Insert<byte[], byte[]>("Block", block.GetHash().ToBytes(), block.ToBytes());
-                transaction.Insert<byte[], byte[]>("Transaction", block.Transactions[0].GetHash().ToBytes(), block.GetHash().ToBytes());
-                transaction.Insert<byte[], bool>("Common", new byte[1], true);
-                transaction.Commit();
+                LiteCollection<BsonDocument> commonCollection = engine.GetCollection("Common");
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                LiteCollection<BsonDocument> transCollection = engine.GetCollection("Transaction");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                blockCollection.Insert(new DbRecord<byte[], byte[]>(block.GetHash().ToBytes(), block.ToBytes()).ToDocument(mapper));
+                transCollection.Insert(new DbRecord<byte[], byte[]>(block.Transactions[0].GetHash().ToBytes(), block.GetHash().ToBytes()).ToDocument(mapper));
+                commonCollection.Insert(new DbRecord<byte[], bool>(new byte[1], true).ToDocument(mapper));
             }
 
             var tip = new HashHeightPair(new uint256(45), 100);
@@ -390,13 +428,18 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
                 repository.Delete(tip, new List<uint256> { block.GetHash() });
             }
 
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction trans = engine.GetTransaction();
+                LiteCollection<BsonDocument> commonCollection = engine.GetCollection("Common");
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                LiteCollection<BsonDocument> transCollection = engine.GetCollection("Transaction");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
 
-                Row<byte[], byte[]> blockHashKeyRow = trans.Select<byte[], byte[]>("Common", new byte[0]);
-                Dictionary<byte[], byte[]> blockDict = trans.SelectDictionary<byte[], byte[]>("Block");
-                Dictionary<byte[], byte[]> transDict = trans.SelectDictionary<byte[], byte[]>("Transaction");
+
+                DbRecord<byte[], byte[]> blockHashKeyRow = commonCollection.FindById(new byte[0]).ToDbRecord<byte[], byte[]>(mapper);
+                Dictionary<byte[], byte[]> blockDict = blockCollection.FindAll().Select(i => i.ToDbRecord<byte[], byte[]>(mapper)).ToDictionary(i => i.Key, i => i.Value);
+                Dictionary<byte[], byte[]> transDict = transCollection.FindAll().Select(i => i.ToDbRecord<byte[], byte[]>(mapper)).ToDictionary(i => i.Key, i => i.Value);
 
                 Assert.Equal(tip, this.DBreezeSerializer.Deserialize<HashHeightPair>(blockHashKeyRow.Value));
                 Assert.Empty(blockDict);
@@ -413,11 +456,13 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             block.Transactions.Add(transaction);
 
             // Set up database to mimic that created when TxIndex was off. No transactions stored.
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction dbreezeTransaction = engine.GetTransaction();
-                dbreezeTransaction.Insert<byte[], byte[]>("Block", block.GetHash().ToBytes(), block.ToBytes());
-                dbreezeTransaction.Commit();
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                blockCollection.Insert(new DbRecord<byte[], byte[]>(block.GetHash().ToBytes(), block.ToBytes()).ToDocument(mapper));
             }
 
             // Turn TxIndex on and then reindex database, as would happen on node startup if -txindex and -reindex are set.
@@ -428,11 +473,15 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             }
 
             // Check that after indexing database, the transaction inside the block is now indexed.
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction dbreezeTransaction = engine.GetTransaction();
-                Dictionary<byte[], byte[]> blockDict = dbreezeTransaction.SelectDictionary<byte[], byte[]>("Block");
-                Dictionary<byte[], byte[]> transDict = dbreezeTransaction.SelectDictionary<byte[], byte[]>("Transaction");
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                LiteCollection<BsonDocument> transCollection = engine.GetCollection("Transaction");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                Dictionary<byte[], byte[]> blockDict = blockCollection.FindAll().Select(i => i.ToDbRecord<byte[], byte[]>(mapper)).ToDictionary(i => i.Key, i => i.Value);
+                Dictionary<byte[], byte[]> transDict = transCollection.FindAll().Select(i => i.ToDbRecord<byte[], byte[]>(mapper)).ToDictionary(i => i.Key, i => i.Value);
 
                 // Block stored as expected.
                 Assert.Single(blockDict);
@@ -455,12 +504,15 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             block.Transactions.Add(transaction);
 
             // Set up database to mimic that created when TxIndex was on. Transaction from block is stored.
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction dbreezeTransaction = engine.GetTransaction();
-                dbreezeTransaction.Insert<byte[], byte[]>("Block", block.GetHash().ToBytes(), block.ToBytes());
-                dbreezeTransaction.Insert<byte[], byte[]>("Transaction", transaction.GetHash().ToBytes(), block.GetHash().ToBytes());
-                dbreezeTransaction.Commit();
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                LiteCollection<BsonDocument> transCollection = engine.GetCollection("Transaction");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                blockCollection.Insert(new DbRecord<byte[], byte[]>(block.GetHash().ToBytes(), block.ToBytes()).ToDocument(mapper));
+                transCollection.Insert(new DbRecord<byte[], byte[]>(transaction.GetHash().ToBytes(), block.GetHash().ToBytes()).ToDocument(mapper));
             }
 
             // Turn TxIndex off and then reindex database, as would happen on node startup if -txindex=0 and -reindex are set.
@@ -471,11 +523,15 @@ namespace Stratis.Bitcoin.Features.BlockStore.Tests
             }
 
             // Check that after indexing database, the transaction is no longer stored.
-            using (var engine = new DBreezeEngine(dir))
+            using (var engine = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction dbreezeTransaction = engine.GetTransaction();
-                Dictionary<byte[], byte[]> blockDict = dbreezeTransaction.SelectDictionary<byte[], byte[]>("Block");
-                Dictionary<byte[], byte[]> transDict = dbreezeTransaction.SelectDictionary<byte[], byte[]>("Transaction");
+                LiteCollection<BsonDocument> blockCollection = engine.GetCollection("Block");
+                LiteCollection<BsonDocument> transCollection = engine.GetCollection("Transaction");
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord>().Id(p => p.Key);
+
+                Dictionary<byte[], byte[]> blockDict = blockCollection.FindAll().Select(i => i.ToDbRecord<byte[], byte[]>(mapper)).ToDictionary(i => i.Key, i => i.Value);
+                Dictionary<byte[], byte[]> transDict = transCollection.FindAll().Select(i => i.ToDbRecord<byte[], byte[]>(mapper)).ToDictionary(i => i.Key, i => i.Value);
 
                 // Block still stored as expected.
                 Assert.Single(blockDict);

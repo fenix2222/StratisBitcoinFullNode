@@ -1,4 +1,5 @@
-﻿using System.Security;
+﻿using System;
+using System.Security;
 
 namespace Stratis.Bitcoin.Utilities.Extensions
 {
@@ -28,6 +29,20 @@ namespace Stratis.Bitcoin.Utilities.Extensions
         public static string FromSecureString(this SecureString secstrPassword)
         {
             return new System.Net.NetworkCredential(string.Empty, secstrPassword).Password;
+        }
+
+        public static byte[] ToBytes(this int value)
+        {
+            byte[] key = BitConverter.GetBytes(value);
+            if (BitConverter.IsLittleEndian) Array.Reverse(key);
+            return key;
+        }
+
+        public static byte[] ToBytes(this ulong value)
+        {
+            byte[] key = BitConverter.GetBytes(value);
+            if (BitConverter.IsLittleEndian) Array.Reverse(key);
+            return key;
         }
     }
 }

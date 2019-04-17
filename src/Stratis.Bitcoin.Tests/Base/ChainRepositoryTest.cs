@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using DBreeze;
-using DBreeze.DataTypes;
+using System.Linq;
+using LiteDB;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using Stratis.Bitcoin.Base;
@@ -32,10 +32,13 @@ namespace Stratis.Bitcoin.Tests.Base
                 repo.SaveAsync(chain).GetAwaiter().GetResult();
             }
 
-            using (var engine = new DBreezeEngine(dir))
+            BsonMapper mapper = BsonMapper.Global;
+            mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            using (var db = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
                 ChainedHeader tip = null;
-                foreach (Row<int, byte[]> row in engine.GetTransaction().SelectForward<int, byte[]>("Chain"))
+                LiteCollection<BsonDocument> collection = db.GetCollection("Chain");
+                foreach (DbRecord<int, byte[]> row in collection.FindAll().Select(r => r.ToDbRecord<int, byte[]>(mapper)))
                 {
                     var blockHeader = this.dBreezeSerializer.Deserialize<BlockHeader>(row.Value);
 
@@ -54,26 +57,25 @@ namespace Stratis.Bitcoin.Tests.Base
             var chain = new ChainIndexer(KnownNetworks.StratisRegTest);
             ChainedHeader tip = this.AppendBlock(chain);
 
-            using (var engine = new DBreezeEngine(dir))
+            BsonMapper mapper = BsonMapper.Global;
+            mapper.Entity<DbRecord<int, byte[]>>().Id(p => p.Key);
+            using (var db = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                using (DBreeze.Transactions.Transaction transaction = engine.GetTransaction())
+                LiteCollection<BsonDocument> collection = db.GetCollection("Chain");
+                ChainedHeader toSave = tip;
+                var blocks = new List<ChainedHeader>();
+                while (toSave != null)
                 {
-                    ChainedHeader toSave = tip;
-                    var blocks = new List<ChainedHeader>();
-                    while (toSave != null)
-                    {
-                        blocks.Insert(0, toSave);
-                        toSave = toSave.Previous;
-                    }
+                    blocks.Insert(0, toSave);
+                    toSave = toSave.Previous;
+                }
 
-                    foreach (ChainedHeader block in blocks)
-                    {
-                        transaction.Insert("Chain", block.Height, this.dBreezeSerializer.Serialize(block.Header));
-                    }
-
-                    transaction.Commit();
+                foreach (ChainedHeader block in blocks)
+                {
+                    collection.Insert(new DbRecord<int, byte[]>(block.Height, this.dBreezeSerializer.Serialize(block.Header)).ToDocument(mapper));
                 }
             }
+
             using (var repo = new ChainRepository(dir, new LoggerFactory(), this.dBreezeSerializer))
             {
                 var testChain = new ChainIndexer(KnownNetworks.StratisRegTest);

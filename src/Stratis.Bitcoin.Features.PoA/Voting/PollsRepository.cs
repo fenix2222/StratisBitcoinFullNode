@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using DBreeze;
-using DBreeze.DataTypes;
-using DBreeze.Utils;
+using LiteDB;
 using Microsoft.Extensions.Logging;
 using Stratis.Bitcoin.Configuration;
 using Stratis.Bitcoin.Utilities;
@@ -13,13 +11,15 @@ namespace Stratis.Bitcoin.Features.PoA.Voting
 {
     public class PollsRepository : IDisposable
     {
-        private readonly DBreezeEngine dbreeze;
-
         private readonly ILogger logger;
 
         private readonly DBreezeSerializer dBreezeSerializer;
 
         internal const string TableName = "DataTable";
+        
+        private LiteDatabase db;
+        private readonly BsonMapper mapper;
+        private LiteCollection<BsonDocument> DataCollection => this.db.GetCollection(TableName);
 
         private static readonly byte[] RepositoryHighestIndexKey = new byte[0];
 
@@ -35,7 +35,9 @@ namespace Stratis.Bitcoin.Features.PoA.Voting
             Guard.NotEmpty(folder, nameof(folder));
 
             Directory.CreateDirectory(folder);
-            this.dbreeze = new DBreezeEngine(folder);
+            this.db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;");
+            this.mapper = BsonMapper.Global;
+            this.mapper.Entity<DbRecord>().Id(p => p.Key);
 
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
             this.dBreezeSerializer = dBreezeSerializer;
@@ -45,14 +47,11 @@ namespace Stratis.Bitcoin.Features.PoA.Voting
         {
             // Load highest index.
             this.highestPollId = -1;
+           
+            var row = this.DataCollection.FindById(RepositoryHighestIndexKey);
 
-            using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
-            {
-                Row<byte[], int> row = transaction.Select<byte[], int>(TableName, RepositoryHighestIndexKey);
-
-                if (row.Exists)
-                    this.highestPollId = row.Value;
-            }
+            if (row != null)
+                this.highestPollId = row.ToDbRecord<byte[], int>(this.mapper).Value;
 
             this.logger.LogDebug("Polls repo initialized with highest id: {0}.", this.highestPollId);
         }
@@ -63,118 +62,106 @@ namespace Stratis.Bitcoin.Features.PoA.Voting
             return this.highestPollId;
         }
 
-        private void SaveHighestPollId(DBreeze.Transactions.Transaction transaction)
+        private void SaveHighestPollId()
         {
-            transaction.Insert<byte[], int>(TableName, RepositoryHighestIndexKey, this.highestPollId);
+            this.DataCollection.Insert(
+                new DbRecord<byte[], int>(RepositoryHighestIndexKey, this.highestPollId).ToDocument(this.mapper));
         }
 
         /// <summary>Removes polls under provided ids.</summary>
         public void RemovePolls(params int[] ids)
         {
-            using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
+            foreach (int pollId in ids.Reverse())
             {
-                foreach (int pollId in ids.Reverse())
-                {
-                    if (this.highestPollId != pollId)
-                        throw new ArgumentException("Only deletion of the most recent item is allowed!");
+                if (this.highestPollId != pollId)
+                    throw new ArgumentException("Only deletion of the most recent item is allowed!");
 
-                    transaction.RemoveKey<byte[]>(TableName, pollId.ToBytes());
+                this.DataCollection.Delete(this.ToBytes(pollId));
 
-                    this.highestPollId--;
-                    this.SaveHighestPollId(transaction);
-                }
-
-                transaction.Commit();
+                this.highestPollId--;
+                this.SaveHighestPollId();
             }
         }
 
         /// <summary>Adds new poll.</summary>
         public void AddPolls(params Poll[] polls)
         {
-            using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
+            foreach (Poll pollToAdd in polls)
             {
-                foreach (Poll pollToAdd in polls)
-                {
-                    if (pollToAdd.Id != this.highestPollId + 1)
-                        throw new ArgumentException("Id is incorrect. Gaps are not allowed.");
+                if (pollToAdd.Id != this.highestPollId + 1)
+                    throw new ArgumentException("Id is incorrect. Gaps are not allowed.");
 
-                    byte[] bytes = this.dBreezeSerializer.Serialize(pollToAdd);
+                byte[] bytes = this.dBreezeSerializer.Serialize(pollToAdd);
 
-                    transaction.Insert<byte[], byte[]>(TableName, pollToAdd.Id.ToBytes(), bytes);
+                this.DataCollection.Insert(
+                    new DbRecord<byte[], byte[]>(ToBytes(pollToAdd.Id), bytes).ToDocument(this.mapper));
 
-                    this.highestPollId++;
-                    this.SaveHighestPollId(transaction);
-                }
-
-                transaction.Commit();
+                this.highestPollId++;
+                this.SaveHighestPollId();
             }
         }
 
         /// <summary>Updates existing poll.</summary>
         public void UpdatePoll(Poll poll)
         {
-            using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
-            {
-                Row<byte[], byte[]> row = transaction.Select<byte[], byte[]>(TableName, poll.Id.ToBytes());
+            BsonDocument row = this.DataCollection.FindById(ToBytes(poll.Id));
 
-                if (!row.Exists)
-                    throw new ArgumentException("Value doesn't exist!");
+            if (row == null)
+                throw new ArgumentException("Value doesn't exist!");
 
-                byte[] bytes = this.dBreezeSerializer.Serialize(poll);
+            byte[] bytes = this.dBreezeSerializer.Serialize(poll);
 
-                transaction.Insert<byte[], byte[]>(TableName, poll.Id.ToBytes(), bytes);
-
-                transaction.Commit();
-            }
+            this.DataCollection.Insert(new DbRecord<byte[], byte[]>(this.ToBytes(poll.Id), bytes).ToDocument(this.mapper));
         }
 
         /// <summary>Loads polls under provided keys from the database.</summary>
         public List<Poll> GetPolls(params int[] ids)
         {
-            using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
+            var polls = new List<Poll>(ids.Length);
+
+            foreach (int id in ids)
             {
-                var polls = new List<Poll>(ids.Length);
+                BsonDocument row = this.DataCollection.FindById(this.ToBytes(id));
 
-                foreach (int id in ids)
-                {
-                    Row<byte[], byte[]> row = transaction.Select<byte[], byte[]>(TableName, id.ToBytes());
+                if (row == null)
+                    throw new ArgumentException("Value under provided key doesn't exist!");
 
-                    if (!row.Exists)
-                        throw new ArgumentException("Value under provided key doesn't exist!");
+                Poll poll = this.dBreezeSerializer.Deserialize<Poll>(row.ToDbRecord<byte[], byte[]>(this.mapper).Value);
 
-                    Poll poll = this.dBreezeSerializer.Deserialize<Poll>(row.Value);
-
-                    polls.Add(poll);
-                }
-
-                return polls;
+                polls.Add(poll);
             }
+
+            return polls;
         }
 
         /// <summary>Loads all polls from the database.</summary>
         public List<Poll> GetAllPolls()
         {
-            using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
+            var polls = new List<Poll>(this.highestPollId + 1);
+
+            for (int i = 0; i < this.highestPollId + 1; i++)
             {
-                var polls = new List<Poll>(this.highestPollId + 1);
+                BsonDocument row = this.DataCollection.FindById(this.ToBytes(i));
 
-                for (int i = 0; i < this.highestPollId + 1; i++)
-                {
-                    Row<byte[], byte[]> row = transaction.Select<byte[], byte[]>(TableName, i.ToBytes());
+                Poll poll = this.dBreezeSerializer.Deserialize<Poll>(row.ToDbRecord<byte[], byte[]>(this.mapper).Value);
 
-                    Poll poll = this.dBreezeSerializer.Deserialize<Poll>(row.Value);
-
-                    polls.Add(poll);
-                }
-
-                return polls;
+                polls.Add(poll);
             }
+
+            return polls;
         }
 
         /// <inheritdoc />
         public void Dispose()
         {
-            this.dbreeze.Dispose();
+            this.db.Dispose();
+        }
+
+        private byte[] ToBytes(int value)
+        {
+            byte[] key = BitConverter.GetBytes(value);
+            if (BitConverter.IsLittleEndian) Array.Reverse(key);
+            return key;
         }
     }
 }

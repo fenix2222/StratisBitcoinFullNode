@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Linq;
-using DBreeze.DataTypes;
+using LiteDB;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.BitcoinCore;
@@ -17,6 +17,7 @@ using Stratis.Bitcoin.IntegrationTests.Common;
 using Stratis.Bitcoin.IntegrationTests.Common.EnvironmentMockUpHelpers;
 using Stratis.Bitcoin.Tests.Common;
 using Stratis.Bitcoin.Utilities;
+using Stratis.Bitcoin.Utilities.Extensions;
 using Xunit;
 using static NBitcoin.Transaction;
 
@@ -233,8 +234,12 @@ namespace Stratis.Bitcoin.IntegrationTests
         {
             using (NodeContext ctx = NodeContext.Create(this))
             {
-                using (var engine = new DBreeze.DBreezeEngine(ctx.FolderName + "/2"))
+                BsonMapper mapper = BsonMapper.Global;
+                mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+                using (var db = new LiteDatabase($"FileName={ctx.FolderName + "/2"}/main.db;Mode=Exclusive;"))
                 {
+                    LiteCollection<BsonDocument> collection = db.GetCollection("Table");
+
                     var data = new[]
                     {
                         new uint256(3),
@@ -249,21 +254,14 @@ namespace Stratis.Bitcoin.IntegrationTests
                     };
                     Array.Sort(data, new UInt256Comparer());
 
-                    using (DBreeze.Transactions.Transaction tx = engine.GetTransaction())
-                    {
-                        foreach (uint256 d in data)
-                            tx.Insert("Table", d.ToBytes(false), d.ToBytes());
-                        tx.Commit();
-                    }
+                    foreach (uint256 d in data)
+                        collection.Insert(new DbRecord<byte[], byte[]>(d.ToBytes(false), d.ToBytes()).ToDocument(mapper));
 
                     var data2 = new uint256[data.Length];
-                    using (DBreeze.Transactions.Transaction tx = engine.GetTransaction())
+                    int i = 0;
+                    foreach (var row in collection.FindAll().Select(r => r.ToDbRecord<byte[], byte[]>(mapper)))
                     {
-                        int i = 0;
-                        foreach (Row<byte[], byte[]> row in tx.SelectForward<byte[], byte[]>("Table"))
-                        {
-                            data2[i++] = new uint256(row.Key, false);
-                        }
+                        data2[i++] = new uint256(row.Key, false);
                     }
 
                     Assert.True(data.SequenceEqual(data2));

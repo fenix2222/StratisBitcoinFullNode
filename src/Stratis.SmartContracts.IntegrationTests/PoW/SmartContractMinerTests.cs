@@ -5,7 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
-using DBreeze;
+using LiteDB;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using Stratis.Bitcoin.Base;
@@ -294,7 +294,7 @@ namespace Stratis.SmartContracts.IntegrationTests.PoW
                 this.keyEncodingStrategy = BasicKeyEncodingStrategy.Default;
 
                 this.Folder = TestBase.AssureEmptyDir(Path.Combine(AppContext.BaseDirectory, "TestCase", callingMethod));
-                var engine = new DBreezeEngine(Path.Combine(this.Folder, "contracts"));
+                var engine = new LiteDatabase($"FileName={Path.Combine(this.Folder, "contracts")}/main.db;Mode=Exclusive;");
                 var byteStore = new DBreezeByteStore(engine, "ContractState1");
                 byteStore.Empty();
                 ISource<byte[], byte[]> stateDB = new NoDeleteSource<byte[], byte[]>(byteStore);

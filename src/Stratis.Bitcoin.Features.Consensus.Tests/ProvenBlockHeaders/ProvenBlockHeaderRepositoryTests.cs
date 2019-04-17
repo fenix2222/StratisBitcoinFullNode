@@ -1,9 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using DBreeze;
-using DBreeze.Utils;
 using FluentAssertions;
+using LiteDB;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NBitcoin;
@@ -12,6 +11,7 @@ using Stratis.Bitcoin.Interfaces;
 using Stratis.Bitcoin.Tests.Common;
 using Stratis.Bitcoin.Tests.Common.Logging;
 using Stratis.Bitcoin.Utilities;
+using Stratis.Bitcoin.Utilities.Extensions;
 using Xunit;
 
 namespace Stratis.Bitcoin.Features.Consensus.Tests.ProvenBlockHeaders
@@ -58,14 +58,14 @@ namespace Stratis.Bitcoin.Features.Consensus.Tests.ProvenBlockHeaders
                 await repo.PutAsync(items, blockHashHeightPair);
             }
 
-            using (var engine = new DBreezeEngine(folder))
+            BsonMapper mapper = BsonMapper.Global;
+            mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            using (var db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction txn = engine.GetTransaction();
-                txn.SynchronizeTables(ProvenBlockHeaderTable);
-                txn.ValuesLazyLoadingIsOn = false;
-
-                var headerOut = this.dBreezeSerializer.Deserialize<ProvenBlockHeader>(txn.Select<byte[], byte[]>(ProvenBlockHeaderTable, blockHashHeightPair.Height.ToBytes()).Value);
-                var hashHeightPairOut = this.DBreezeSerializer.Deserialize<HashHeightPair>(txn.Select<byte[], byte[]>(BlockHashTable, new byte[0].ToBytes()).Value);
+                LiteCollection<BsonDocument> provenBlockHeadersCollection = db.GetCollection(ProvenBlockHeaderTable);
+                LiteCollection<BsonDocument> blockHashCollection = db.GetCollection(BlockHashTable);
+                var headerOut = this.dBreezeSerializer.Deserialize<ProvenBlockHeader>(provenBlockHeadersCollection.FindById(blockHashHeightPair.Height.ToBytes()).ToDbRecord<byte[], byte[]>(mapper).Value);
+                var hashHeightPairOut = this.DBreezeSerializer.Deserialize<HashHeightPair>(blockHashCollection.FindById(new byte[0]).ToDbRecord<byte[], byte[]>(mapper).Value);
 
                 headerOut.Should().NotBeNull();
                 headerOut.GetHash().Should().Be(provenBlockHeaderIn.GetHash());
@@ -92,15 +92,15 @@ namespace Stratis.Bitcoin.Features.Consensus.Tests.ProvenBlockHeaders
                 await repo.PutAsync(items, new HashHeightPair(header2.GetHash(), items.Count - 1));
             }
 
+            BsonMapper mapper = BsonMapper.Global;
+            mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+
             // Check the ProvenBlockHeader exists in the database.
-            using (var engine = new DBreezeEngine(folder))
+            using (var db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction txn = engine.GetTransaction();
-                txn.SynchronizeTables(ProvenBlockHeaderTable);
-                txn.ValuesLazyLoadingIsOn = false;
-
-                var headersOut = txn.SelectDictionary<byte[], byte[]>(ProvenBlockHeaderTable);
-
+                LiteCollection<BsonDocument> provenBlockHeadersCollection = db.GetCollection(ProvenBlockHeaderTable);
+                var headersOut = provenBlockHeadersCollection.FindAll()
+                    .Select(ph => ph.ToDbRecord<byte[], byte[]>(mapper)).ToDictionary(i => i.Key, i => i.Value);
                 headersOut.Keys.Count.Should().Be(2);
                 this.dBreezeSerializer.Deserialize<ProvenBlockHeader>(headersOut.First().Value).GetHash().Should().Be(items[0].GetHash());
                 this.dBreezeSerializer.Deserialize<ProvenBlockHeader>(headersOut.Last().Value).GetHash().Should().Be(items[1].GetHash());
@@ -116,11 +116,12 @@ namespace Stratis.Bitcoin.Features.Consensus.Tests.ProvenBlockHeaders
 
             int blockHeight = 1;
 
-            using (var engine = new DBreezeEngine(folder))
+            BsonMapper mapper = BsonMapper.Global;
+            mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            using (var db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction txn = engine.GetTransaction();
-                txn.Insert<byte[], byte[]>(ProvenBlockHeaderTable, blockHeight.ToBytes(), this.dBreezeSerializer.Serialize(headerIn));
-                txn.Commit();
+                LiteCollection<BsonDocument> provenBlockHeadersCollection = db.GetCollection(ProvenBlockHeaderTable);
+                provenBlockHeadersCollection.Insert(new DbRecord<byte[], byte[]>(blockHeight.ToBytes(), this.dBreezeSerializer.Serialize(headerIn)).ToDocument(mapper));
             }
 
             // Query the repository for the item that was inserted in the above code.
@@ -138,12 +139,15 @@ namespace Stratis.Bitcoin.Features.Consensus.Tests.ProvenBlockHeaders
         {
             string folder = CreateTestDir(this);
 
-            using (var engine = new DBreezeEngine(folder))
+            BsonMapper mapper = BsonMapper.Global;
+            mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            using (var db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;"))
             {
-                DBreeze.Transactions.Transaction txn = engine.GetTransaction();
-                txn.Insert<byte[], byte[]>(ProvenBlockHeaderTable, 1.ToBytes(), this.dBreezeSerializer.Serialize(CreateNewProvenBlockHeaderMock()));
-                txn.Insert<byte[], byte[]>(BlockHashTable, new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(new uint256(), 1)));
-                txn.Commit();
+                LiteCollection<BsonDocument> provenBlockHeadersCollection = db.GetCollection(ProvenBlockHeaderTable);
+                LiteCollection<BsonDocument> blockHashCollection = db.GetCollection(BlockHashTable);
+
+                provenBlockHeadersCollection.Insert(new DbRecord<byte[], byte[]>(1.ToBytes(), this.dBreezeSerializer.Serialize(CreateNewProvenBlockHeaderMock())).ToDocument(mapper));
+                blockHashCollection.Insert(new DbRecord<byte[], byte[]>(new byte[0], this.DBreezeSerializer.Serialize(new HashHeightPair(new uint256(), 1))).ToDocument(mapper));
             }
 
             using (ProvenBlockHeaderRepository repo = this.SetupRepository(this.Network, folder))

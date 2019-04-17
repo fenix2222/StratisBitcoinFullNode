@@ -1,8 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
-using DBreeze;
-using DBreeze.DataTypes;
+using LiteDB;
 using Stratis.Bitcoin.Configuration;
 using Stratis.Bitcoin.Utilities.JsonConverters;
 
@@ -32,10 +31,9 @@ namespace Stratis.Bitcoin.Utilities
 
     public class KeyValueRepository : IKeyValueRepository
     {
-        /// <summary>Access to DBreeze database.</summary>
-        private readonly DBreezeEngine dbreeze;
-
         private const string TableName = "common";
+        private readonly string folder;
+        private readonly BsonMapper mapper;
 
         private readonly DBreezeSerializer dBreezeSerializer;
 
@@ -46,20 +44,22 @@ namespace Stratis.Bitcoin.Utilities
         public KeyValueRepository(string folder, DBreezeSerializer dBreezeSerializer)
         {
             Directory.CreateDirectory(folder);
-            this.dbreeze = new DBreezeEngine(folder);
+            this.folder = folder;
             this.dBreezeSerializer = dBreezeSerializer;
+            this.mapper = BsonMapper.Global;
+            this.mapper.Entity<DbRecord>().Id(p => p.Key);
         }
 
         /// <inheritdoc />
         public void SaveBytes(string key, byte[] bytes)
         {
-            byte[] keyBytes = Encoding.ASCII.GetBytes(key);
-
-            using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
+            using (var db = new LiteDatabase($"FileName={this.folder}/main.db;Mode=Exclusive;"))
             {
-                transaction.Insert<byte[], byte[]>(TableName, keyBytes, bytes);
+                var dbRecord = new DbRecord { Key = key, Value = bytes };
+                LiteCollection<BsonDocument> collection = db.GetCollection(TableName);
 
-                transaction.Commit();
+                BsonDocument document = this.mapper.ToDocument(dbRecord);
+                collection.Insert(document);
             }
         }
 
@@ -81,18 +81,15 @@ namespace Stratis.Bitcoin.Utilities
         /// <inheritdoc />
         public byte[] LoadBytes(string key)
         {
-            byte[] keyBytes = Encoding.ASCII.GetBytes(key);
-
-            using (DBreeze.Transactions.Transaction transaction = this.dbreeze.GetTransaction())
+            using (var db = new LiteDatabase($"FileName={this.folder}/main.db;Mode=Exclusive;"))
             {
-                transaction.ValuesLazyLoadingIsOn = false;
+                LiteCollection<BsonDocument> collection = db.GetCollection(TableName);
+                BsonDocument document = collection.FindById(key);
 
-                Row<byte[], byte[]> row = transaction.Select<byte[], byte[]>(TableName, keyBytes);
-
-                if (!row.Exists)
+                if (document == null)
                     return null;
 
-                return row.Value;
+                return this.mapper.ToObject<DbRecord>(document).Value;
             }
         }
 
@@ -126,7 +123,6 @@ namespace Stratis.Bitcoin.Utilities
         /// <inheritdoc />
         public void Dispose()
         {
-            this.dbreeze.Dispose();
         }
     }
 }

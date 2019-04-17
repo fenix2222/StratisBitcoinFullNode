@@ -1,7 +1,7 @@
 ﻿using System;
-using DBreeze;
-using DBreeze.DataTypes;
+using LiteDB;
 using Stratis.Bitcoin.Configuration;
+using Stratis.Bitcoin.Utilities;
 using Stratis.Patricia;
 
 namespace Stratis.SmartContracts.Core.State
@@ -11,44 +11,39 @@ namespace Stratis.SmartContracts.Core.State
     /// </summary>
     public class DBreezeByteStore : ISource<byte[], byte[]>
     {
-        private DBreezeEngine engine;
+        private LiteDatabase db;
+        private readonly BsonMapper mapper;
         private string table;
 
-        public DBreezeByteStore(DBreezeEngine engine, string table)
+        public DBreezeByteStore(LiteDatabase db, string table)
         {
-            this.engine = engine;
+            this.db = db;
             this.table = table;
+            this.mapper = BsonMapper.Global;
+            this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
         }
 
         public byte[] Get(byte[] key)
         {
-            using (DBreeze.Transactions.Transaction t = this.engine.GetTransaction())
-            {
-                Row<byte[], byte[]> row = t.Select<byte[], byte[]>(this.table, key);
+            var collection = this.db.GetCollection(this.table);
+            var row = collection.FindById(key);
 
-                if (row.Exists)
-                    return row.Value;
+            if (row != null)
+                return row.ToDbRecord<byte[], byte[]>(this.mapper).Value;
 
-                return null;
-            }
+            return null;
         }
 
         public void Put(byte[] key, byte[] val)
         {
-            using (DBreeze.Transactions.Transaction t = this.engine.GetTransaction())
-            {
-                t.Insert(this.table, key, val);
-                t.Commit();
-            }
+            LiteCollection<BsonDocument> collection = this.db.GetCollection(this.table);
+            collection.Insert(new DbRecord<byte[], byte[]>(key, val).ToDocument(this.mapper));
         }
 
         public void Delete(byte[] key)
         {
-            using (DBreeze.Transactions.Transaction t = this.engine.GetTransaction())
-            {
-                t.RemoveKey(this.table, key);
-                t.Commit();
-            }
+            LiteCollection<BsonDocument> collection = this.db.GetCollection(this.table);
+            collection.Delete(key);
         }
 
         public bool Flush()
@@ -61,11 +56,8 @@ namespace Stratis.SmartContracts.Core.State
         /// </summary>
         public void Empty()
         {
-            using (DBreeze.Transactions.Transaction t = this.engine.GetTransaction())
-            {
-                t.RemoveAllKeys(this.table, false);
-                t.Commit();
-            }
+            LiteCollection<BsonDocument> collection = this.db.GetCollection(this.table);
+            collection.Delete(k => true);
         }
     }
 
@@ -74,6 +66,6 @@ namespace Stratis.SmartContracts.Core.State
     /// </summary>
     public class DBreezeContractStateStore : DBreezeByteStore
     {
-        public DBreezeContractStateStore(DataFolder dataFolder) : base(new DBreezeEngine(dataFolder.SmartContractStatePath), "state") { }
+        public DBreezeContractStateStore(DataFolder dataFolder) : base(new LiteDatabase($"FileName={dataFolder.SmartContractStatePath}/main.db;Mode=Exclusive;"), "state") { }
     }
 }

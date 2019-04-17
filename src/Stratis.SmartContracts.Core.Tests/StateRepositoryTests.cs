@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using DBreeze;
+using LiteDB;
 using NBitcoin;
 using Stratis.Patricia;
 using Stratis.SmartContracts.Core.State;
@@ -139,13 +139,10 @@ namespace Stratis.SmartContracts.Core.Tests
         [Fact]
         public void Test20DBreeze()
         {
-            DBreezeEngine engine = new DBreezeEngine(DbreezeTestLocation);
-            using (DBreeze.Transactions.Transaction t = engine.GetTransaction())
-            {
-                t.RemoveAllKeys(DbreezeTestDb, true);
-                t.Commit();
-            }
-            ISource<byte[], byte[]> stateDB = new NoDeleteSource<byte[], byte[]>(new DBreezeByteStore(engine, DbreezeTestDb));
+            var db = new LiteDatabase($"FileName={DbreezeTestLocation}/main.db;Mode=Exclusive;");
+            var collection = db.GetCollection(DbreezeTestDb);
+            collection.Delete(k => true);
+            ISource<byte[], byte[]> stateDB = new NoDeleteSource<byte[], byte[]>(new DBreezeByteStore(db, DbreezeTestDb));
             StateRepositoryRoot repository = new StateRepositoryRoot(stateDB);
             byte[] root = repository.Root;
 

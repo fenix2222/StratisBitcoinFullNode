@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using DBreeze;
-using DBreeze.DataTypes;
 using FluentAssertions;
+using LiteDB;
 using NBitcoin;
 using NBitcoin.BitcoinCore;
 using Stratis.Bitcoin.Tests.Common;
@@ -165,26 +164,29 @@ namespace Stratis.Bitcoin.Tests.Utilities
             string dir = CreateTestDir(this);
             uint256[] data = SetupTransactionData(dir);
 
-            using (var engine = new DBreezeEngine(dir))
+            BsonMapper mapper = BsonMapper.Global;
+            mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            using (var db = new LiteDatabase($"FileName={dir}/main.db;Mode=Exclusive;"))
             {
-                using (DBreeze.Transactions.Transaction transaction = engine.GetTransaction())
+                LiteCollection<BsonDocument> collection = db.GetCollection("Table");
+                var data2 = new uint256[data.Length];
+                int i = 0;
+                foreach (var row in collection.FindAll().Select(r => r.ToDbRecord<int, byte[]>(mapper)))
                 {
-                    var data2 = new uint256[data.Length];
-                    int i = 0;
-                    foreach (Row<int, byte[]> row in transaction.SelectForward<int, byte[]>("Table"))
-                    {
-                        data2[i++] = new uint256(row.Value, false);
-                    }
-
-                    Assert.True(data.SequenceEqual(data2));
+                    data2[i++] = new uint256(row.Value, false);
                 }
+
+                Assert.True(data.SequenceEqual(data2));
             }
         }
 
         private static uint256[] SetupTransactionData(string folder)
         {
-            using (var engine = new DBreezeEngine(folder))
+            BsonMapper mapper = BsonMapper.Global;
+            mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            using (var db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;"))
             {
+                LiteCollection<BsonDocument> collection = db.GetCollection("Table");
                 var data = new[]
                 {
                     new uint256(3),
@@ -194,13 +196,9 @@ namespace Stratis.Bitcoin.Tests.Utilities
                 };
 
                 int i = 0;
-                using (DBreeze.Transactions.Transaction tx = engine.GetTransaction())
-                {
-                    foreach (uint256 d in data)
-                        tx.Insert<int, byte[]>("Table", i++, d.ToBytes(false));
 
-                    tx.Commit();
-                }
+                foreach (uint256 d in data)
+                    collection.Insert(new DbRecord<int, byte[]>(i++, d.ToBytes(false)).ToDocument(mapper));
 
                 return data;
             }
