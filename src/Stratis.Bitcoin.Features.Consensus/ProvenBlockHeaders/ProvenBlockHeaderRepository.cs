@@ -93,6 +93,8 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
             this.db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;");
             this.mapper = BsonMapper.Global;
             this.mapper.Entity<DbRecord>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<int, byte[]>>().Id(p => p.Key);
             this.network = network;
         }
 
@@ -163,7 +165,7 @@ namespace Stratis.Bitcoin.Features.Consensus.ProvenBlockHeaders
         {
             Guard.NotNull(newTip, nameof(newTip));
 
-            this.BlockHashHeightCollection.Insert(new DbRecord<byte[], byte[]>(blockHashHeightKey, this.dBreezeSerializer.Serialize(newTip)).ToDocument(this.mapper));
+            this.BlockHashHeightCollection.Upsert(new DbRecord<byte[], byte[]>(blockHashHeightKey, this.dBreezeSerializer.Serialize(newTip)).ToDocument(this.mapper));
         }
 
         /// <summary>

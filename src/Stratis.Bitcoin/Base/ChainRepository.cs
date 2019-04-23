@@ -46,6 +46,8 @@ namespace Stratis.Bitcoin.Base
             Directory.CreateDirectory(folder);
             this.mapper = BsonMapper.Global;
             this.mapper.Entity<DbRecord<int>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<int, byte[]>>().Id(p => p.Key);
             this.db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;");
         }
 
@@ -132,7 +134,7 @@ namespace Stratis.Bitcoin.Base
                     }
 
                     BsonDocument document = this.mapper.ToDocument(new DbRecord<int> { Key = block.Height, Value = this.dBreezeSerializer.Serialize(header) });
-                    collection.Insert(document);
+                    collection.Upsert(document);
                 }
 
                 this.locator = tip.GetLocator();

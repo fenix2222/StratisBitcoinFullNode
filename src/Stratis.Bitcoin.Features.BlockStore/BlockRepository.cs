@@ -134,6 +134,9 @@ namespace Stratis.Bitcoin.Features.BlockStore
             this.dBreezeSerializer = dBreezeSerializer;
             this.mapper = BsonMapper.Global;
             this.mapper.Entity<DbRecord>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<byte[], bool>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<int, byte[]>>().Id(p => p.Key);
         }
 
         /// <inheritdoc />
@@ -373,7 +376,7 @@ namespace Stratis.Bitcoin.Features.BlockStore
         private void SaveTipHashAndHeight(HashHeightPair newTip)
         {
             this.TipHashAndHeight = newTip;
-            this.CommonCollection.Insert(new DbRecord<byte[], byte[]>(RepositoryTipKey, this.dBreezeSerializer.Serialize(newTip)).ToDocument(this.mapper));
+            this.CommonCollection.Upsert(new DbRecord<byte[], byte[]>(RepositoryTipKey, this.dBreezeSerializer.Serialize(newTip)).ToDocument(this.mapper));
         }
 
         /// <inheritdoc />

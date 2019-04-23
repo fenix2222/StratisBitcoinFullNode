@@ -88,6 +88,8 @@ namespace Stratis.Bitcoin.Features.Consensus.CoinViews
             this.db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;");
             this.mapper = BsonMapper.Global;
             this.mapper.Entity<DbRecord>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<int, byte[]>>().Id(p => p.Key);
             this.network = network;
             this.performanceCounter = new BackendPerformanceCounter(dateTimeProvider);
 
@@ -170,7 +172,7 @@ namespace Stratis.Bitcoin.Features.Consensus.CoinViews
         private void SetBlockHash(uint256 nextBlockHash)
         {
             this.blockHash = nextBlockHash;
-            this.BlockHashCollection.Insert(new DbRecord<byte[], byte[]>(blockHashKey, nextBlockHash.ToBytes()).ToDocument(this.mapper));
+            this.BlockHashCollection.Upsert(new DbRecord<byte[], byte[]>(blockHashKey, nextBlockHash.ToBytes()).ToDocument(this.mapper));
         }
 
         /// <inheritdoc />
@@ -212,7 +214,7 @@ namespace Stratis.Bitcoin.Features.Consensus.CoinViews
                     var coin = toInsert[i];
                     this.logger.LogTrace("Outputs of transaction ID '{0}' are NOT PRUNABLE and will be inserted into the database. {1}/{2}.", coin.TransactionId, i, toInsert.Count);
 
-                    this.CoinsCollection.Insert(new DbRecord<byte[], byte[]>(coin.TransactionId.ToBytes(false), this.dBreezeSerializer.Serialize(coin.ToCoins())).ToDocument(this.mapper));
+                    this.CoinsCollection.Upsert(new DbRecord<byte[], byte[]>(coin.TransactionId.ToBytes(false), this.dBreezeSerializer.Serialize(coin.ToCoins())).ToDocument(this.mapper));
                 }
 
                 if (rewindDataList != null)
@@ -222,7 +224,7 @@ namespace Stratis.Bitcoin.Features.Consensus.CoinViews
                     {
                         this.logger.LogTrace("Rewind state #{0} created.", nextRewindIndex);
 
-                        this.RewindCollection.Insert(
+                        this.RewindCollection.Upsert(
                             new DbRecord<int, byte[]>(nextRewindIndex, this.dBreezeSerializer.Serialize(rewindData))
                                 .ToDocument(this.mapper));
                         nextRewindIndex++;
@@ -244,7 +246,7 @@ namespace Stratis.Bitcoin.Features.Consensus.CoinViews
         /// the order number of the first rewind data is 0 + 1 = 1.</remarks>
         private int GetRewindIndex()
         {
-            var firstRow = this.RewindCollection.Max();
+            var firstRow = this.RewindCollection.FindAll().LastOrDefault();
 
             return firstRow != null ? firstRow.AsDocument.ToDbRecord<int, byte[]>(this.mapper).Key : 0;
         }
@@ -268,7 +270,7 @@ namespace Stratis.Bitcoin.Features.Consensus.CoinViews
             }
             else
             {
-                var firstRow = this.RewindCollection.Max();
+                var firstRow = this.RewindCollection.FindAll().LastOrDefault();
                 if (firstRow != null)
                 {
                     var record = firstRow.AsDocument.ToDbRecord<int, byte[]>(this.mapper);
@@ -285,7 +287,7 @@ namespace Stratis.Bitcoin.Features.Consensus.CoinViews
                     foreach (UnspentOutputs coin in rewindData.OutputsToRestore)
                     {
                         this.logger.LogTrace("Outputs of transaction ID '{0}' will be restored.", coin.TransactionId);
-                        this.CoinsCollection.Insert(new DbRecord<byte[], byte[]>(coin.TransactionId.ToBytes(false), this.dBreezeSerializer.Serialize(coin.ToCoins())).ToDocument(this.mapper));
+                        this.CoinsCollection.Upsert(new DbRecord<byte[], byte[]>(coin.TransactionId.ToBytes(false), this.dBreezeSerializer.Serialize(coin.ToCoins())).ToDocument(this.mapper));
                     }
 
                     res = rewindData.PreviousBlockHash;
@@ -315,7 +317,7 @@ namespace Stratis.Bitcoin.Features.Consensus.CoinViews
             {
                 if (!stakeEntry.InStore)
                 {
-                    this.StakeCollection.Insert(new DbRecord<byte[], byte[]>(stakeEntry.BlockId.ToBytes(false),
+                    this.StakeCollection.Upsert(new DbRecord<byte[], byte[]>(stakeEntry.BlockId.ToBytes(false),
                         this.dBreezeSerializer.Serialize(stakeEntry.BlockStake)).ToDocument(this.mapper));
                     stakeEntry.InStore = true;
                 }

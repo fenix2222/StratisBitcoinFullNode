@@ -21,6 +21,7 @@ namespace Stratis.SmartContracts.Core.State
             this.table = table;
             this.mapper = BsonMapper.Global;
             this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<int, byte[]>>().Id(p => p.Key);
         }
 
         public byte[] Get(byte[] key)

@@ -38,6 +38,8 @@ namespace Stratis.Bitcoin.Features.PoA.Voting
             this.db = new LiteDatabase($"FileName={folder}/main.db;Mode=Exclusive;");
             this.mapper = BsonMapper.Global;
             this.mapper.Entity<DbRecord>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<int, byte[]>>().Id(p => p.Key);
 
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
             this.dBreezeSerializer = dBreezeSerializer;

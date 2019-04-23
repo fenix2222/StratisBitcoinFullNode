@@ -48,6 +48,8 @@ namespace Stratis.Bitcoin.Utilities
             this.dBreezeSerializer = dBreezeSerializer;
             this.mapper = BsonMapper.Global;
             this.mapper.Entity<DbRecord>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<int, byte[]>>().Id(p => p.Key);
         }
 
         /// <inheritdoc />
@@ -59,7 +61,7 @@ namespace Stratis.Bitcoin.Utilities
                 LiteCollection<BsonDocument> collection = db.GetCollection(TableName);
 
                 BsonDocument document = this.mapper.ToDocument(dbRecord);
-                collection.Insert(document);
+                collection.Upsert(document);
             }
         }
 

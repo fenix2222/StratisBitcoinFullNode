@@ -29,6 +29,8 @@ namespace Stratis.Bitcoin.Features.BlockStore.Pruning
             this.storeSettings = storeSettings;
             this.mapper = BsonMapper.Global;
             this.mapper.Entity<DbRecord>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<byte[], byte[]>>().Id(p => p.Key);
+            this.mapper.Entity<DbRecord<int, byte[]>>().Id(p => p.Key);
         }
 
         /// <inheritdoc />
