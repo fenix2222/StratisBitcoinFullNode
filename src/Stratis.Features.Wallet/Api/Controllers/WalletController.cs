@@ -10,13 +10,13 @@ using Microsoft.Extensions.Logging;
 using NBitcoin;
 using Stratis.Bitcoin.Connection;
 using Stratis.Features.Wallet.Broadcasting;
-using Stratis.Features.Wallet.Helpers;
 using Stratis.Features.Wallet.Interfaces;
 using Stratis.Features.Wallet.Api.Models;
 using Stratis.Bitcoin.Utilities;
 using Stratis.Bitcoin.Utilities.JsonErrors;
 using Stratis.Bitcoin.Utilities.ModelStateErrors;
 using Stratis.Features.Wallet.Api.Converters;
+using Stratis.Features.Wallet.Comparers;
 
 namespace Stratis.Features.Wallet.Api.Controllers
 {
@@ -366,7 +366,7 @@ namespace Stratis.Features.Wallet.Api.Controllers
         /// <summary>
         /// Gets some general information about a wallet. This includes the network the wallet is for,
         /// the creation date and time for the wallet, the height of the blocks the wallet currently holds,
-        /// and the number of connected nodes. 
+        /// and the number of connected nodes.
         /// </summary>
         /// <param name="request">The name of the wallet to get the information for.</param>
         /// <returns>A JSON object containing the wallet information.</returns>
@@ -415,7 +415,7 @@ namespace Stratis.Features.Wallet.Api.Controllers
 
         /// <summary>
         /// Gets the history of a wallet. This includes the transactions held by the entire wallet
-        /// or a single account if one is specified. 
+        /// or a single account if one is specified.
         /// </summary>
         /// <param name="request">An object containing the parameters used to retrieve a wallet's history.</param>
         /// <returns>A JSON object containing the wallet history.</returns>
@@ -727,7 +727,7 @@ namespace Stratis.Features.Wallet.Api.Controllers
         /// Gets the spendable transactions for an account with the option to specify how many confirmations
         /// a transaction needs to be included.
         /// </summary>
-        /// <param name="request">An object containing the parameters used to retrieve the spendable 
+        /// <param name="request">An object containing the parameters used to retrieve the spendable
         /// transactions for an account.</param>
         /// <returns>A JSON object containing the spendable transactions for an account.</returns>
         [Route("spendable-transactions")]
@@ -772,7 +772,7 @@ namespace Stratis.Features.Wallet.Api.Controllers
         /// Fee can be estimated by creating a <see cref="TransactionBuildContext"/> with no password
         /// and then building the transaction and retrieving the fee from the context.
         /// </summary>
-        /// <param name="request">An object containing the parameters used to estimate the fee 
+        /// <param name="request">An object containing the parameters used to estimate the fee
         /// for a specific transaction.</param>
         /// <returns>The estimated fee for the transaction.</returns>
         [Route("estimate-txfee")]
@@ -1161,14 +1161,14 @@ namespace Stratis.Features.Wallet.Api.Controllers
         /// Removes transactions from the wallet.
         /// You might want to remove transactions from a wallet if some unconfirmed transactions disappear
         /// from the blockchain or the transaction fields within the wallet are updated and a refresh is required to
-        /// populate the new fields. 
+        /// populate the new fields.
         /// In one situation, you might notice several unconfirmed transaction in the wallet, which you now know were
         /// never confirmed. You can use this API to correct this by specifying a date and time before the first
         /// unconfirmed transaction thereby removing all transactions after this point. You can also request a resync as
         /// part of the call, which calculates the block height for the earliest removal. The wallet sync manager then
         /// proceeds to resync from there reinstating the confirmed transactions in the wallet. You can also cherry pick
-        /// transactions to remove by specifying their transaction ID. 
-        /// 
+        /// transactions to remove by specifying their transaction ID.
+        ///
         /// <param name="request">An object containing the necessary parameters to remove transactions
         /// from a wallet. The includes several options for specifying the transactions to remove.</param>
         /// <returns>A JSON object containing all removed transactions identified by their

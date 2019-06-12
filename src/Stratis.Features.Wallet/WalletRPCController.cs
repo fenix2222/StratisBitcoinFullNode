@@ -12,12 +12,13 @@ using Stratis.Bitcoin.Controllers;
 using Stratis.Bitcoin.Features.BlockStore;
 using Stratis.Bitcoin.Features.RPC;
 using Stratis.Bitcoin.Features.RPC.Exceptions;
-using Stratis.Features.Wallet.Interfaces;
 using Stratis.Features.Wallet.Api.Models;
 using Stratis.Bitcoin.Interfaces;
 using Stratis.Bitcoin.Primitives;
 using Stratis.Bitcoin.Utilities;
 using TracerAttributes;
+using Stratis.Bitcoin;
+using Stratis.Features.Wallet.Broadcasting;
 
 namespace Stratis.Features.Wallet
 {

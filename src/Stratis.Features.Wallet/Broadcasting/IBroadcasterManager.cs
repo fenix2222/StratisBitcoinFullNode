@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 using NBitcoin;
-using Stratis.Features.Wallet.Broadcasting;
 
-namespace Stratis.Features.Wallet.Interfaces
+namespace Stratis.Features.Wallet.Broadcasting
 {
     public interface IBroadcasterManager
     {

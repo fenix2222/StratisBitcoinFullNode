@@ -18,6 +18,7 @@ using Stratis.Features.Wallet.Api.Controllers;
 using Stratis.Features.Wallet.Interfaces;
 using Stratis.Bitcoin.Interfaces;
 using Stratis.Bitcoin.Utilities;
+using Stratis.Bitcoin.Signals;
 
 namespace Stratis.Features.Wallet
 {
@@ -38,7 +39,7 @@ namespace Stratis.Features.Wallet
 
         private readonly IWalletManager walletManager;
 
-        private readonly Signals.ISignals signals;
+        private readonly ISignals signals;
 
         private readonly IConnectionManager connectionManager;
 
@@ -47,7 +48,7 @@ namespace Stratis.Features.Wallet
         private readonly BroadcasterBehavior broadcasterBehavior;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="WalletFeature"/> class.
+        /// Initializes a new instance of the <see cref="WalletFeature" /> class.
         /// </summary>
         /// <param name="walletSyncManager">The synchronization manager for the wallet, tasked with keeping the wallet synced with the network.</param>
         /// <param name="walletManager">The wallet manager.</param>
@@ -55,11 +56,12 @@ namespace Stratis.Features.Wallet
         /// <param name="signals">The signals responsible for receiving blocks and transactions from the network.</param>
         /// <param name="connectionManager">The connection manager.</param>
         /// <param name="broadcasterBehavior">The broadcaster behavior.</param>
+        /// <param name="nodeStats">The node stats.</param>
         public WalletFeature(
             IWalletSyncManager walletSyncManager,
             IWalletManager walletManager,
             IAddressBookManager addressBookManager,
-            Signals.ISignals signals,
+            ISignals signals,
             IConnectionManager connectionManager,
             BroadcasterBehavior broadcasterBehavior,
             INodeStats nodeStats)

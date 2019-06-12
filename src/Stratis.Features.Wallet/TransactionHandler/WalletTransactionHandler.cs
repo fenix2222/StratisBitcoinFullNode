@@ -42,7 +42,7 @@ namespace Stratis.Features.Wallet
             this.walletManager = walletManager;
             this.walletFeePolicy = walletFeePolicy;
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
-            
+
             this.TransactionPolicy = transactionPolicy;
         }
 
@@ -209,7 +209,7 @@ namespace Stratis.Features.Wallet
 
             Wallet wallet = this.walletManager.GetWalletByName(context.AccountReference.WalletName);
             ExtKey seedExtKey = this.walletManager.GetExtKey(context.AccountReference, context.WalletPassword, context.CacheSecret);
-            
+
             var signingKeys = new HashSet<ISecret>();
             var added = new HashSet<HdAddress>();
             foreach (UnspentOutputReference unspentOutputsItem in context.UnspentOutputs)

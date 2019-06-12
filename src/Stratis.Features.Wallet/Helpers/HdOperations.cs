@@ -9,7 +9,7 @@ namespace Stratis.Features.Wallet
     /// Class providing helper methods for working with Hierarchical Deterministic (HD) wallets.
     /// </summary>
     /// <seealso cref="https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki" />
-    public class HdOperations
+    public static class HdOperations
     {
         /// <summary>
         /// Generates an HD public key derived from an extended public key.
@@ -37,7 +37,7 @@ namespace Stratis.Features.Wallet
         /// <param name="chainCode">The chain code used in creating the extended private key.</param>
         /// <param name="hdPath">The HD path of the account for which to get the extended private key.</param>
         /// <param name="network">The network for which to generate this extended private key.</param>
-        /// <returns></returns>
+        /// <returns>The extended private key</returns>
         [NoTrace]
         public static ISecret GetExtendedPrivateKey(Key privateKey, byte[] chainCode, string hdPath, Network network)
         {

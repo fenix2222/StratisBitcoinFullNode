@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using ConcurrentCollections;
 using NBitcoin;
 using Stratis.Bitcoin.Connection;
-using Stratis.Features.Wallet.Interfaces;
 using Stratis.Bitcoin.P2P.Peer;
 using Stratis.Bitcoin.P2P.Protocol.Payloads;
 using Stratis.Bitcoin.Utilities;

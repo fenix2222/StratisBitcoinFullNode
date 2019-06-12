@@ -1,6 +1,6 @@
 ﻿using NBitcoin;
 
-namespace Stratis.Features.Wallet.Interfaces
+namespace Stratis.Features.Wallet
 {
     public interface IWalletFeePolicy
     {

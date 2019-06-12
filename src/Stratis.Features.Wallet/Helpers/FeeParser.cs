@@ -2,27 +2,6 @@
 
 namespace Stratis.Features.Wallet
 {
-    /// <summary>
-    /// An indicator of how fast a transaction will be accepted in a block.
-    /// </summary>
-    public enum FeeType
-    {
-        /// <summary>
-        /// Slow.
-        /// </summary>
-        Low = 0,
-
-        /// <summary>
-        /// Avarage.
-        /// </summary>
-        Medium = 1,
-
-        /// <summary>
-        /// Fast.
-        /// </summary>
-        High = 105
-    }
-
     public static class FeeParser
     {
         public static FeeType Parse(string value)
@@ -39,6 +18,9 @@ namespace Stratis.Features.Wallet
         /// <summary>
         /// Map a fee type to the number of confirmations
         /// </summary>
+        /// <param name="fee">The fee.</param>
+        /// <returns>The number of confirmations</returns>
+        /// <exception cref="WalletException">Invalid fee</exception>
         public static int ToConfirmations(this FeeType fee)
         {
             switch (fee)

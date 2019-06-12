@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Stratis.Features.Wallet.Api.Models;
 
-namespace Stratis.Features.Wallet.Helpers
+namespace Stratis.Features.Wallet.Comparers
 {
     /// <summary>
     ///  Used for comparing a list of TransactionItemModel to each other.

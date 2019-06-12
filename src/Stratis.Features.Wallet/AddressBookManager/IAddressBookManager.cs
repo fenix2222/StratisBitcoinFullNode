@@ -1,4 +1,4 @@
-﻿namespace Stratis.Features.Wallet.Interfaces
+﻿namespace Stratis.Features.Wallet
 {
     /// <summary>
     /// An interface providing operations on an address book.
