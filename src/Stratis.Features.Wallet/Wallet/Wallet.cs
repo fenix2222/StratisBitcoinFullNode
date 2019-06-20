@@ -12,7 +12,7 @@ namespace Stratis.Features.Wallet
     /// <summary>
     /// A wallet.
     /// </summary>
-    public class Wallet
+    public class Wallet : IWallet
     {
         /// <summary>Default pattern for accounts in the wallet. The first account will be called 'account 0', then 'account 1' and so on.</summary>
         public const string AccountNamePattern = "account {0}";
