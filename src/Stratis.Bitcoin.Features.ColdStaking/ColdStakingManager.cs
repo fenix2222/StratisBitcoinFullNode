@@ -34,16 +34,14 @@ namespace Stratis.Bitcoin.Features.ColdStaking
     /// </remarks>
     public class ColdStakingManager : WalletManager, IWalletManager
     {
-        private static Func<HdAccount, bool> coldStakingAccounts = a => a.Index >= Wallet.Wallet.SpecialPurposeAccountIndexesStart;
-
         /// <summary>The account index of the cold wallet account.</summary>
-        internal const int ColdWalletAccountIndex = Wallet.Wallet.SpecialPurposeAccountIndexesStart + 0;
+        internal int coldWalletAccountIndex;
 
         /// <summary>The account name of the cold wallet account.</summary>
         internal const string ColdWalletAccountName = "coldStakingColdAddresses";
 
         /// <summary>The account index of the hot wallet account.</summary>
-        internal const int HotWalletAccountIndex = Wallet.Wallet.SpecialPurposeAccountIndexesStart + 1;
+        internal int hotWalletAccountIndex;
 
         /// <summary>The account name of the hot wallet account.</summary>
         internal const string HotWalletAccountName = "coldStakingHotAddresses";
@@ -98,6 +96,9 @@ namespace Stratis.Bitcoin.Features.ColdStaking
 
             this.logger = loggerFactory.CreateLogger(this.GetType().FullName);
             this.dateTimeProvider = dateTimeProvider;
+
+            this.coldWalletAccountIndex = this.GetSpecialAccountIndex(ColdWalletAccountName);
+            this.hotWalletAccountIndex = this.GetSpecialAccountIndex(HotWalletAccountName);
         }
 
         /// <summary>
@@ -132,7 +133,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
         public override IEnumerable<UnspentOutputReference> GetSpendableTransactionsInWalletForStaking(string walletName, int confirmations = 0)
         {
             return this.GetSpendableTransactionsInWallet(walletName, confirmations,
-                a => (a.Index < Wallet.Wallet.SpecialPurposeAccountIndexesStart) || (a.Index == ColdStakingManager.HotWalletAccountIndex));
+                a => (a.Index != this.coldWalletAccountIndex) || (a.Index == this.hotWalletAccountIndex));
         }
 
         /// <summary>
@@ -222,12 +223,12 @@ namespace Stratis.Bitcoin.Features.ColdStaking
 
             if (isColdWalletAccount)
             {
-                accountIndex = ColdWalletAccountIndex;
+                accountIndex = coldWalletAccountIndex;
                 accountName = ColdWalletAccountName;
             }
             else
             {
-                accountIndex = HotWalletAccountIndex;
+                accountIndex = hotWalletAccountIndex;
                 accountName = HotWalletAccountName;
             }
 
@@ -503,7 +504,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
             lock (this.lockObject)
             {
                 res = wallet.GetAllSpendableTransactions(this.ChainIndexer.Tip.Height, confirmations,
-                    a => a.Index == (isColdWalletAccount ? ColdWalletAccountIndex : HotWalletAccountIndex)).ToArray();
+                    a => a.Index == (isColdWalletAccount ? coldWalletAccountIndex : hotWalletAccountIndex)).ToArray();
             }
 
             this.logger.LogTrace("(-):*.Count={0}", res.Count());
@@ -519,12 +520,26 @@ namespace Stratis.Bitcoin.Features.ColdStaking
         {
             if (ColdStakingScriptTemplate.Instance.ExtractScriptPubKeyParameters(script, out KeyId hotPubKeyHash, out KeyId coldPubKeyHash))
             {
-                base.TransactionFoundInternal(hotPubKeyHash.ScriptPubKey, a => a.Index == HotWalletAccountIndex);
-                base.TransactionFoundInternal(coldPubKeyHash.ScriptPubKey, a => a.Index == ColdWalletAccountIndex);
+                base.TransactionFoundInternal(hotPubKeyHash.ScriptPubKey, a => a.Index == this.hotWalletAccountIndex);
+                base.TransactionFoundInternal(coldPubKeyHash.ScriptPubKey, a => a.Index == this.coldWalletAccountIndex);
             }
             else
             {
                 base.TransactionFoundInternal(script, accountFilter);
+            }
+        }
+
+        /// <inheritdoc />
+        public override int GetSpecialAccountIndex(string purpose)
+        {
+            switch (purpose)
+            {
+                case ColdWalletAccountName:
+                    return 0;
+                case HotWalletAccountName:
+                    return 1;
+                default:
+                    return base.GetSpecialAccountIndex(purpose);
             }
         }
     }

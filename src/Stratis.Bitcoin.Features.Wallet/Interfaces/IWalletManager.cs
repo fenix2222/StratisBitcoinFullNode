@@ -370,5 +370,13 @@ namespace Stratis.Bitcoin.Features.Wallet.Interfaces
         /// <param name="fromDate">The date after which the transactions should be removed.</param>
         /// <returns>A list of objects made up of a transactions ID along with the time at which they were created.</returns>
         HashSet<(uint256, DateTimeOffset)> RemoveTransactionsFromDate(string walletName, DateTimeOffset fromDate);
+
+        /// <summary>
+        /// Gets the index of a special account.
+        /// Special accounts are accounts reserved for special purpose, like Cold Staking.
+        /// </summary>
+        /// <param name="purpose">The account purpose, used to generate the corresponding index.</param>
+        /// <returns>Index of a special account</returns>
+        int GetSpecialAccountIndex(string purpose);
     }
 }

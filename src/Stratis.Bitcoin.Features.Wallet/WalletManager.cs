@@ -1836,5 +1836,11 @@ namespace Stratis.Bitcoin.Features.Wallet
 
             return new ExtKey(privateKey, wallet.ChainCode);
         }
+
+        /// <inheritdoc />
+        public virtual int GetSpecialAccountIndex(string purpose)
+        {
+            return Wallet.SpecialPurposeAccountIndexesStart;
+        }
     }
 }

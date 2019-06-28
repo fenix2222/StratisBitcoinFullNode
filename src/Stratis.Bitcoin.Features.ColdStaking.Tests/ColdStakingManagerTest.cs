@@ -21,6 +21,10 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Tests
         private readonly IBlockStore blockStore;
         private readonly WalletFixture walletFixture;
 
+        //test should be fixed without relying on this const but calling
+        private const int ColdWalletAccountIndex = Wallet.Wallet.SpecialPurposeAccountIndexesStart;
+        private const int HotWalletAccountIndex = Wallet.Wallet.SpecialPurposeAccountIndexesStart + 1;
+
         public ColdStakingManagerTest(WalletFixture walletFixture)
         {
             this.blockStore = new Mock<IBlockStore>().Object;
@@ -99,12 +103,12 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Tests
             (PubKey PubKey, BitcoinPubKeyAddress Address) changeKeys = WalletTestsHelpers.GenerateAddressKeys(wallet, accountKeys.ExtPubKey, "1/0");
 
             Wallet.Wallet coldWallet = this.walletFixture.GenerateBlankWallet("myColdWallet", "password");
-            (ExtKey ExtKey, string ExtPubKey) accountColdKeys = WalletTestsHelpers.GenerateAccountKeys(coldWallet, "password", $"m/44'/0'/{ColdStakingManager.ColdWalletAccountIndex}'");
+            (ExtKey ExtKey, string ExtPubKey) accountColdKeys = WalletTestsHelpers.GenerateAccountKeys(coldWallet, "password", $"m/44'/0'/{ColdWalletAccountIndex}'");
 
             (PubKey PubKey, BitcoinPubKeyAddress Address) destinationColdKeys = WalletTestsHelpers.GenerateAddressKeys(coldWallet, accountColdKeys.ExtPubKey, "0/0");
 
             Wallet.Wallet hotWallet = this.walletFixture.GenerateBlankWallet("myHotWallet", "password");
-            (ExtKey ExtKey, string ExtPubKey) accountHotKeys = WalletTestsHelpers.GenerateAccountKeys(hotWallet, "password", $"m/44'/0'/{ColdStakingManager.HotWalletAccountIndex}'");
+            (ExtKey ExtKey, string ExtPubKey) accountHotKeys = WalletTestsHelpers.GenerateAccountKeys(hotWallet, "password", $"m/44'/0'/{HotWalletAccountIndex}'");
 
             (PubKey PubKey, BitcoinPubKeyAddress Address) destinationHotKeys = WalletTestsHelpers.GenerateAddressKeys(hotWallet, accountHotKeys.ExtPubKey, "0/0");
 
@@ -121,7 +125,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Tests
             var destinationColdAddress = new HdAddress
             {
                 Index = 0,
-                HdPath = $"m/44'/0'/{ColdStakingManager.ColdWalletAccountIndex}'/0/0",
+                HdPath = $"m/44'/0'/{ColdWalletAccountIndex}'/0/0",
                 Address = destinationColdKeys.Address.ToString(),
                 Pubkey = destinationColdKeys.PubKey.ScriptPubKey,
                 ScriptPubKey = destinationColdKeys.Address.ScriptPubKey,
@@ -131,7 +135,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Tests
             var destinationHotAddress = new HdAddress
             {
                 Index = 0,
-                HdPath = $"m/44'/0'/{ColdStakingManager.HotWalletAccountIndex}'/0/0",
+                HdPath = $"m/44'/0'/{HotWalletAccountIndex}'/0/0",
                 Address = destinationHotKeys.Address.ToString(),
                 Pubkey = destinationHotKeys.PubKey.ScriptPubKey,
                 ScriptPubKey = destinationHotKeys.Address.ScriptPubKey,
@@ -165,9 +169,9 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Tests
 
             coldWallet.AccountsRoot.ElementAt(0).Accounts.Add(new HdAccount
             {
-                Index = ColdStakingManager.ColdWalletAccountIndex,
+                Index = ColdWalletAccountIndex,
                 Name = ColdStakingManager.ColdWalletAccountName,
-                HdPath = $"m/44'/0'/{ColdStakingManager.ColdWalletAccountIndex}'",
+                HdPath = $"m/44'/0'/{ColdWalletAccountIndex}'",
                 ExtendedPubKey = accountColdKeys.ExtPubKey,
                 ExternalAddresses = new List<HdAddress> { destinationColdAddress },
                 InternalAddresses = new List<HdAddress> { }
@@ -175,9 +179,9 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Tests
 
             hotWallet.AccountsRoot.ElementAt(0).Accounts.Add(new HdAccount
             {
-                Index = ColdStakingManager.HotWalletAccountIndex,
+                Index = HotWalletAccountIndex,
                 Name = ColdStakingManager.HotWalletAccountName,
-                HdPath = $"m/44'/0'/{ColdStakingManager.HotWalletAccountIndex}'",
+                HdPath = $"m/44'/0'/{HotWalletAccountIndex}'",
                 ExtendedPubKey = accountHotKeys.ExtPubKey,
                 ExternalAddresses = new List<HdAddress> { destinationHotAddress },
                 InternalAddresses = new List<HdAddress> { }

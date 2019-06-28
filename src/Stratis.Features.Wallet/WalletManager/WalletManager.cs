@@ -41,6 +41,9 @@ namespace Stratis.Features.Wallet
         /// <summary>Timer for saving wallet files to the file system.</summary>
         private const int WalletSavetimeIntervalInMinutes = 5;
 
+        /// <summary>Account numbers greater or equal to this number are reserved for special purpose account indexes.</summary>
+        public const int SpecialPurposeAccountIndexesStart = 100_000_000;
+
         private const string DownloadChainLoop = "WalletManager.DownloadChain";
 
         /// <summary>
@@ -231,7 +234,7 @@ namespace Stratis.Features.Wallet
             // Find the last chain block received by the wallet manager.
             HashHeightPair hashHeightPair = this.LastReceivedBlockInfo();
             this.WalletTipHash = hashHeightPair.Hash;
-            this.WalletTipHeight= hashHeightPair.Height;
+            this.WalletTipHeight = hashHeightPair.Height;
 
             // Save the wallets file every 5 minutes to help against crashes.
             this.asyncLoop = this.asyncProvider.CreateAndRunAsyncLoop("Wallet persist job", token =>
@@ -1834,6 +1837,12 @@ namespace Stratis.Features.Wallet
             }
 
             return new ExtKey(privateKey, wallet.ChainCode);
+        }
+
+        /// <inheritdoc />
+        public virtual int GetSpecialAccountIndex(string purpose)
+        {
+            return Wallet.SpecialPurposeAccountIndexesStart;
         }
     }
 }
