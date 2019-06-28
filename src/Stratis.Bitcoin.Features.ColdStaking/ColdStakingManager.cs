@@ -535,9 +535,9 @@ namespace Stratis.Bitcoin.Features.ColdStaking
             switch (purpose)
             {
                 case ColdWalletAccountName:
-                    return 0;
+                    return Wallet.Wallet.SpecialPurposeAccountIndexesStart;
                 case HotWalletAccountName:
-                    return 1;
+                    return Wallet.Wallet.SpecialPurposeAccountIndexesStart + 1;
                 default:
                     return base.GetSpecialAccountIndex(purpose);
             }
