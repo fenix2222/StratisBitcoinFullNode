@@ -2,12 +2,19 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore.Internal;
+using Newtonsoft.Json.Linq;
 using Stratis.FederatedSidechains.AdminDashboard.Entities;
 
 namespace Stratis.FederatedSidechains.AdminDashboard.Models
 {
     public class StratisNodeModel
     {
+        public StratisNodeModel()
+        {
+            this.Peers = new List<Peer>();
+            this.FederationMembers = new List<Peer>();
+        }
+        
         public float SyncingStatus { get; set; }
         public string WebAPIUrl { get; set; } = "http://localhost:38221/api";
         public string SwaggerUrl { get; set; } = "http://localhost:38221/swagger";
@@ -26,6 +33,10 @@ namespace Stratis.FederatedSidechains.AdminDashboard.Models
         public string AsyncLoops { get; set; }
         public int HeaderHeight { get; set; }
         public int AddressIndexer { get; set; }
+        
+        public JArray OutboundPeers { get; set; }
+        
+        public JArray InboundPeers { get; set; }
 
         public bool HasAsyncLoopsErrors
         {

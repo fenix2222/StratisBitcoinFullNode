@@ -6,6 +6,9 @@ namespace Stratis.FederatedSidechains.AdminDashboard.Settings
         public string SidechainNode { get; set; }
         public string SidechainNodeType { get; set; }
         public string EnvType { get; set; }
+        public bool IsMainnet => this.EnvType != NodeEnv.TestNet;
+        
+        public bool Is50K => this.SidechainNodeType == NodeTypes.FiftyK;
 
         public override string ToString()
         {
