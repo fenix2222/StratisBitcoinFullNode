@@ -3,8 +3,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using NBitcoin;
 using Newtonsoft.Json;
-using Stratis.Bitcoin.Features.Wallet;
 using Stratis.Bitcoin.Utilities.JsonConverters;
+using Stratis.Features.Wallet;
 
 namespace Stratis.Bitcoin.Features.WatchOnlyWallet
 {

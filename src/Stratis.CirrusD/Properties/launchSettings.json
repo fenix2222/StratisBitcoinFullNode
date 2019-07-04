@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Stratis.CirrusD": {
+      "commandName": "Project",
+      "commandLineArgs": "-connect=127.0.0.1:16180 -listen=1 -diagpeerstats=1 -diagpeerstatsmaxlog=30"
+    }
+  }
+}
