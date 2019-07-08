@@ -247,7 +247,7 @@ namespace Stratis.Features.Wallet.Api.Controllers
 
             try
             {
-                Wallet wallet = this.walletManager.LoadWallet(request.Password, request.Name);
+                IWallet wallet = this.walletManager.LoadWallet(request.Password, request.Name);
                 return this.Ok();
             }
             catch (FileNotFoundException e)
@@ -287,7 +287,7 @@ namespace Stratis.Features.Wallet.Api.Controllers
 
             try
             {
-                Wallet wallet = this.walletManager.RecoverWallet(request.Password, request.Name, request.Mnemonic, request.CreationDate, passphrase: request.Passphrase);
+                IWallet wallet = this.walletManager.RecoverWallet(request.Password, request.Name, request.Mnemonic, request.CreationDate, passphrase: request.Passphrase);
 
                 this.SyncFromBestHeightForRecoveredWallets(request.CreationDate);
 
@@ -384,7 +384,7 @@ namespace Stratis.Features.Wallet.Api.Controllers
 
             try
             {
-                Wallet wallet = this.walletManager.GetWallet(request.Name);
+                IWallet wallet = this.walletManager.GetWallet(request.Name);
 
                 var model = new WalletGeneralInfoModel
                 {
@@ -1133,7 +1133,7 @@ namespace Stratis.Features.Wallet.Api.Controllers
 
             try
             {
-                Wallet wallet = this.walletManager.GetWallet(request.WalletName);
+                IWallet wallet = this.walletManager.GetWallet(request.WalletName);
                 HdAccount account = wallet.GetAccount(request.AccountName);
                 if (account == null)
                     throw new WalletException($"No account with the name '{request.AccountName}' could be found.");
@@ -1216,7 +1216,7 @@ namespace Stratis.Features.Wallet.Api.Controllers
                     ChainedHeader chainedHeader = this.chainIndexer.GetHeader(this.chainIndexer.GetHeightAtTime(earliestDate.DateTime));
 
                     // Update the wallet and save it to the file system.
-                    Wallet wallet = this.walletManager.GetWallet(request.WalletName);
+                    IWallet wallet = this.walletManager.GetWallet(request.WalletName);
                     wallet.SetLastBlockDetails(chainedHeader);
                     this.walletManager.SaveWallet(wallet);
 

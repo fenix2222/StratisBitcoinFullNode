@@ -55,7 +55,7 @@ namespace Stratis.Features.Wallet
             if (this.Accounts == null)
                 return null;
 
-            List<HdAccount> unusedAccounts = this.Accounts.Where(Wallet.NormalAccounts).Where(acc => !acc.ExternalAddresses.SelectMany(add => add.Transactions).Any() && !acc.InternalAddresses.SelectMany(add => add.Transactions).Any()).ToList();
+            List<HdAccount> unusedAccounts = this.Accounts.Where(AccountFilters.NormalAccounts).Where(acc => !acc.ExternalAddresses.SelectMany(add => add.Transactions).Any() && !acc.InternalAddresses.SelectMany(add => add.Transactions).Any()).ToList();
             if (!unusedAccounts.Any())
                 return null;
 
@@ -107,7 +107,7 @@ namespace Stratis.Features.Wallet
                 if (hdAccounts.Any())
                 {
                     // Hide account indexes used for cold staking from the "Max" calculation.
-                    accountIndex = hdAccounts.Where(Wallet.NormalAccounts).Max(a => a.Index) + 1;
+                    accountIndex = hdAccounts.Where(AccountFilters.NormalAccounts).Max(a => a.Index) + 1;
                 }
                 else
                 {

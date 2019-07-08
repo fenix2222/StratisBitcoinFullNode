@@ -17,12 +17,12 @@ using Stratis.Bitcoin.Features.BlockStore;
 using Stratis.Bitcoin.Features.ColdStaking.Controllers;
 using Stratis.Bitcoin.Features.MemoryPool;
 using Stratis.Bitcoin.Features.RPC;
-using Stratis.Bitcoin.Features.Wallet;
-using Stratis.Bitcoin.Features.Wallet.Broadcasting;
-using Stratis.Bitcoin.Features.Wallet.Controllers;
-using Stratis.Bitcoin.Features.Wallet.Interfaces;
 using Stratis.Bitcoin.Interfaces;
 using Stratis.Bitcoin.Utilities;
+using Stratis.Features.Wallet;
+using Stratis.Features.Wallet.Api.Controllers;
+using Stratis.Features.Wallet.Broadcasting;
+using Stratis.Features.Wallet.Interfaces;
 
 namespace Stratis.Bitcoin.Features.ColdStaking
 {

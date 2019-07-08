@@ -2,9 +2,9 @@
 using NBitcoin;
 using Stratis.Bitcoin.Consensus;
 using Stratis.Bitcoin.Features.BlockStore;
-using Stratis.Bitcoin.Features.Wallet;
-using Stratis.Bitcoin.Features.Wallet.Interfaces;
 using Stratis.Bitcoin.Interfaces;
+using Stratis.Features.Wallet;
+using Stratis.Features.Wallet.Broadcasting;
 
 namespace Stratis.Bitcoin.Features.ColdStaking.Controllers
 {

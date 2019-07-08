@@ -20,9 +20,6 @@ namespace Stratis.Features.Wallet
         /// <summary>Account numbers greater or equal to this number are reserved for special purpose account indexes.</summary>
         public const int SpecialPurposeAccountIndexesStart = 100_000_000;
 
-        /// <summary>Filter for identifying normal wallet accounts.</summary>
-        public static Func<HdAccount, bool> NormalAccounts = a => a.Index < SpecialPurposeAccountIndexesStart;
-
         /// <summary>
         /// Initializes a new instance of the wallet.
         /// </summary>
@@ -89,7 +86,7 @@ namespace Stratis.Features.Wallet
         /// <returns>The accounts in the wallet.</returns>
         public IEnumerable<HdAccount> GetAccounts(Func<HdAccount, bool> accountFilter = null)
         {
-            return this.AccountsRoot.SelectMany(a => a.Accounts).Where(accountFilter ?? NormalAccounts);
+            return this.AccountsRoot.SelectMany(a => a.Accounts).Where(accountFilter ?? AccountFilters.NormalAccounts);
         }
 
         /// <summary>

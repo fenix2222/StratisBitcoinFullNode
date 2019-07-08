@@ -293,7 +293,7 @@ namespace Stratis.Features.Wallet
             Money feeSent = Money.Zero;
             if (sendTransactions.Any())
             {
-                Wallet wallet = this.walletManager.GetWallet(accountReference.WalletName);
+                IWallet wallet = this.walletManager.GetWallet(accountReference.WalletName);
                 feeSent = wallet.GetSentTransactionFee(trxid);
             }
 

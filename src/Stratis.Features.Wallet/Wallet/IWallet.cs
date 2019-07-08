@@ -45,6 +45,11 @@ namespace Stratis.Features.Wallet
         DateTimeOffset CreationTime { get; set; }
 
         /// <summary>
+        /// The root of the accounts tree.
+        /// </summary>
+        ICollection<AccountRoot> AccountsRoot { get; set; }
+
+        /// <summary>
         /// Gets the accounts in the wallet.
         /// </summary>
         /// <param name="accountFilter">An optional filter for filtering the accounts being returned.</param>

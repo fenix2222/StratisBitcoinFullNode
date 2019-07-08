@@ -207,7 +207,7 @@ namespace Stratis.Features.Wallet
             if (!context.Sign)
                 return;
 
-            Wallet wallet = this.walletManager.GetWalletByName(context.AccountReference.WalletName);
+            IWallet wallet = this.walletManager.GetWalletByName(context.AccountReference.WalletName);
             ExtKey seedExtKey = this.walletManager.GetExtKey(context.AccountReference, context.WalletPassword, context.CacheSecret);
 
             var signingKeys = new HashSet<ISecret>();

@@ -98,15 +98,13 @@ namespace Stratis.Features.Wallet
 
         private void AddInlineStats(StringBuilder log)
         {
-            var walletManager = this.walletManager as WalletManager;
-
-            if (walletManager != null)
+            if (this.walletManager != null)
             {
-                HashHeightPair hashHeightPair = walletManager.LastReceivedBlockInfo();
+                HashHeightPair hashHeightPair = this.walletManager.LastReceivedBlockInfo();
 
                 log.AppendLine("Wallet.Height: ".PadRight(LoggingConfiguration.ColumnLength + 1) +
-                                        (walletManager.ContainsWallets ? hashHeightPair.Height.ToString().PadRight(8) : "No Wallet".PadRight(8)) +
-                                        (walletManager.ContainsWallets ? (" Wallet.Hash: ".PadRight(LoggingConfiguration.ColumnLength - 1) + hashHeightPair.Hash) : string.Empty));
+                                        (this.walletManager.ContainsWallets ? hashHeightPair.Height.ToString().PadRight(8) : "No Wallet".PadRight(8)) +
+                                        (this.walletManager.ContainsWallets ? (" Wallet.Hash: ".PadRight(LoggingConfiguration.ColumnLength - 1) + hashHeightPair.Hash) : string.Empty));
             }
         }
 
@@ -172,7 +170,7 @@ namespace Stratis.Features.Wallet
                     {
                         services.AddSingleton<IWalletSyncManager, WalletSyncManager>();
                         services.AddSingleton<IWalletTransactionHandler, WalletTransactionHandler>();
-                        services.AddSingleton<IWalletManager, WalletManager>();
+                        services.AddSingleton<IWalletManager, JsonWalletManager>();
                         services.AddSingleton<IWalletFeePolicy, WalletFeePolicy>();
                         services.AddSingleton<WalletController>();
                         services.AddSingleton<WalletRPCController>();

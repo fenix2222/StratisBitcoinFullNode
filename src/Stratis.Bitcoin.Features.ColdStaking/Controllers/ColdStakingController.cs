@@ -4,11 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using Stratis.Bitcoin.Features.ColdStaking.Models;
-using Stratis.Bitcoin.Features.Wallet;
-using Stratis.Bitcoin.Features.Wallet.Interfaces;
 using Stratis.Bitcoin.Utilities;
 using Stratis.Bitcoin.Utilities.JsonErrors;
 using Stratis.Bitcoin.Utilities.ModelStateErrors;
+using Stratis.Features.Wallet;
 
 namespace Stratis.Bitcoin.Features.ColdStaking.Controllers
 {
@@ -89,7 +88,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Controllers
         public IActionResult CreateColdStakingAccount([FromBody]CreateColdStakingAccountRequest request)
         {
             Guard.NotNull(request, nameof(request));
-            
+
             // Checks that the request is valid.
             if (!this.ModelState.IsValid)
             {
@@ -128,7 +127,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Controllers
         public IActionResult GetColdStakingAddress([FromQuery]GetColdStakingAddressRequest request)
         {
             Guard.NotNull(request, nameof(request));
-            
+
             // Checks that the request is valid.
             if (!this.ModelState.IsValid)
             {
@@ -170,7 +169,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Controllers
         public IActionResult SetupColdStaking([FromBody]SetupColdStakingRequest request)
         {
             Guard.NotNull(request, nameof(request));
-            
+
             // Checks the request is valid.
             if (!this.ModelState.IsValid)
             {
@@ -215,7 +214,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking.Controllers
         public IActionResult ColdStakingWithdrawal([FromBody]ColdStakingWithdrawalRequest request)
         {
             Guard.NotNull(request, nameof(request));
-            
+
             // Checks the request is valid.
             if (!this.ModelState.IsValid)
             {

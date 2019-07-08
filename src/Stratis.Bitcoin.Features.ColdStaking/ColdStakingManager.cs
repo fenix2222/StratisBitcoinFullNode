@@ -7,10 +7,10 @@ using NBitcoin;
 using NBitcoin.BuilderExtensions;
 using Stratis.Bitcoin.AsyncWork;
 using Stratis.Bitcoin.Configuration;
-using Stratis.Bitcoin.Features.Wallet;
-using Stratis.Bitcoin.Features.Wallet.Interfaces;
 using Stratis.Bitcoin.Interfaces;
 using Stratis.Bitcoin.Utilities;
+using Stratis.Features.Wallet;
+using Stratis.Features.Wallet.Broadcasting;
 
 [assembly: InternalsVisibleTo("Stratis.Bitcoin.Features.ColdStaking.Tests")]
 [assembly: InternalsVisibleTo("Stratis.Bitcoin.IntegrationTests")]
@@ -32,7 +32,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
     /// cref="GetColdStakingSetupTransaction"/> method.</description></item>
     /// </list>
     /// </remarks>
-    public class ColdStakingManager : WalletManager, IWalletManager
+    public class ColdStakingManager : JsonWalletManager
     {
         /// <summary>The account index of the cold wallet account.</summary>
         internal int coldWalletAccountIndex;
@@ -143,7 +143,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
         /// <returns>A <see cref="Models.GetColdStakingInfoResponse"/> object containing the information.</returns>
         internal Models.GetColdStakingInfoResponse GetColdStakingInfo(string walletName)
         {
-            Wallet.Wallet wallet = this.GetWalletByName(walletName);
+            IWallet wallet = this.GetWalletByName(walletName);
 
             var response = new Models.GetColdStakingInfoResponse()
             {
@@ -169,7 +169,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
         /// <param name="wallet">The wallet where we wish to create the account.</param>
         /// <param name="isColdWalletAccount">Indicates whether we need the cold wallet account (versus the hot wallet account).</param>
         /// <returns>The cold staking account or <c>null</c> if the account does not exist.</returns>
-        internal HdAccount GetColdStakingAccount(Wallet.Wallet wallet, bool isColdWalletAccount)
+        internal HdAccount GetColdStakingAccount(IWallet wallet, bool isColdWalletAccount)
         {
             var coinType = (CoinType)wallet.Network.Consensus.CoinType;
             HdAccount account = wallet.GetAccount(isColdWalletAccount ? ColdWalletAccountName : HotWalletAccountName);
@@ -201,7 +201,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
         /// <returns>The new or existing cold staking account.</returns>
         internal HdAccount GetOrCreateColdStakingAccount(string walletName, bool isColdWalletAccount, string walletPassword)
         {
-            Wallet.Wallet wallet = this.GetWalletByName(walletName);
+            IWallet wallet = this.GetWalletByName(walletName);
 
             HdAccount account = this.GetColdStakingAccount(wallet, isColdWalletAccount);
             if (account != null)
@@ -249,7 +249,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
         {
             Guard.NotNull(walletName, nameof(walletName));
 
-            Wallet.Wallet wallet = this.GetWalletByName(walletName);
+            IWallet wallet = this.GetWalletByName(walletName);
             HdAccount account = this.GetColdStakingAccount(wallet, isColdWalletAddress);
             if (account == null)
             {
@@ -306,7 +306,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
             Guard.NotNull(amount, nameof(amount));
             Guard.NotNull(feeAmount, nameof(feeAmount));
 
-            Wallet.Wallet wallet = this.GetWalletByName(walletName);
+            IWallet wallet = this.GetWalletByName(walletName);
 
             // Get/create the cold staking accounts.
             HdAccount coldAccount = this.GetOrCreateColdStakingAccount(walletName, true, walletPassword);
@@ -384,7 +384,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
             Guard.NotNull(amount, nameof(amount));
             Guard.NotNull(feeAmount, nameof(feeAmount));
 
-            Wallet.Wallet wallet = this.GetWalletByName(walletName);
+            IWallet wallet = this.GetWalletByName(walletName);
 
             // Get the cold staking account.
             HdAccount coldAccount = this.GetColdStakingAccount(wallet, true);
@@ -474,7 +474,7 @@ namespace Stratis.Bitcoin.Features.ColdStaking
         {
             Guard.NotEmpty(walletName, nameof(walletName));
 
-            Wallet.Wallet wallet = this.GetWalletByName(walletName);
+            IWallet wallet = this.GetWalletByName(walletName);
             UnspentOutputReference[] res = null;
             lock (this.lockObject)
             {
@@ -510,9 +510,9 @@ namespace Stratis.Bitcoin.Features.ColdStaking
             switch (purpose)
             {
                 case ColdWalletAccountName:
-                    return Wallet.Wallet.SpecialPurposeAccountIndexesStart;
+                    return Wallet.SpecialPurposeAccountIndexesStart;
                 case HotWalletAccountName:
-                    return Wallet.Wallet.SpecialPurposeAccountIndexesStart + 1;
+                    return Wallet.SpecialPurposeAccountIndexesStart + 1;
                 default:
                     return base.GetSpecialAccountIndex(purpose);
             }

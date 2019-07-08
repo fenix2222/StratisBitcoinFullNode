@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using NBitcoin;
 using NBitcoin.BuilderExtensions;
+using Stratis.Bitcoin.Utilities;
 
 namespace Stratis.Features.Wallet
 {
@@ -96,7 +97,7 @@ namespace Stratis.Features.Wallet
         /// <param name="password">The user's password.</param>
         /// <param name="name">The name of the wallet.</param>
         /// <returns>The wallet.</returns>
-        Wallet LoadWallet(string password, string name);
+        IWallet LoadWallet(string password, string name);
 
         /// <summary>
         /// Unlocks a wallet for the specified time.
@@ -121,7 +122,7 @@ namespace Stratis.Features.Wallet
         /// <param name="passphrase">The passphrase used in the seed.</param>
         /// <param name="creationTime">The date and time this wallet was created.</param>
         /// <returns>The recovered wallet.</returns>
-        Wallet RecoverWallet(string password, string name, string mnemonic, DateTime creationTime, string passphrase = null);
+        IWallet RecoverWallet(string password, string name, string mnemonic, DateTime creationTime, string passphrase = null);
 
         /// <summary>
         /// Recovers a wallet using extended public key and account index.
@@ -131,7 +132,7 @@ namespace Stratis.Features.Wallet
         /// <param name="accountIndex">The account number.</param>
         /// <param name="creationTime">The date and time this wallet was created.</param>
         /// <returns></returns>
-        Wallet RecoverWallet(string name, ExtPubKey extPubKey, int accountIndex, DateTime creationTime);
+        IWallet RecoverWallet(string name, ExtPubKey extPubKey, int accountIndex, DateTime creationTime);
 
         /// <summary>
         /// Deletes a wallet.
@@ -160,7 +161,7 @@ namespace Stratis.Features.Wallet
         /// at index (i - 1) contains transactions.
         /// </remarks>
         /// <returns>An unused account.</returns>
-        HdAccount GetUnusedAccount(Wallet wallet, string password);
+        HdAccount GetUnusedAccount(IWallet wallet, string password);
 
         /// <summary>
         /// Gets an address that contains no transaction.
@@ -222,7 +223,7 @@ namespace Stratis.Features.Wallet
         /// </summary>
         /// <param name="walletName">The name of the wallet.</param>
         /// <returns></returns>
-        Wallet GetWallet(string walletName);
+        IWallet GetWallet(string walletName);
 
         /// <summary>
         /// Gets a list of accounts.
@@ -263,7 +264,7 @@ namespace Stratis.Features.Wallet
         /// Saves the wallet into the file system.
         /// </summary>
         /// <param name="wallet">The wallet to save.</param>
-        void SaveWallet(Wallet wallet);
+        void SaveWallet(IWallet wallet);
 
         /// <summary>
         /// Saves all the loaded wallets into the file system.
@@ -283,24 +284,17 @@ namespace Stratis.Features.Wallet
         IEnumerable<string> GetWalletsNames();
 
         /// <summary>
-        /// Updates the wallet with the height of the last block synced.
+        /// Gets the hash of the last block received by the wallets.
         /// </summary>
-        /// <param name="wallet">The wallet to update.</param>
-        /// <param name="chainedHeader">The height of the last block synced.</param>
-        void UpdateLastBlockSyncedHeight(Wallet wallet, ChainedHeader chainedHeader);
-
-        /// <summary>
-        /// Updates all the loaded wallets with the height of the last block synced.
-        /// </summary>
-        /// <param name="chainedHeader">The height of the last block synced.</param>
-        void UpdateLastBlockSyncedHeight(ChainedHeader chainedHeader);
+        /// <returns>Hash of the last block received by the wallets.</returns>
+        HashHeightPair LastReceivedBlockInfo();
 
         /// <summary>
         /// Gets a wallet given its name.
         /// </summary>
         /// <param name="walletName">The name of the wallet to get.</param>
         /// <returns>A wallet or null if it doesn't exist</returns>
-        Wallet GetWalletByName(string walletName);
+        IWallet GetWalletByName(string walletName);
 
         /// <summary>
         /// Gets the block locator of the first loaded wallet.
