@@ -43,10 +43,10 @@ Current hierarchy is
 
 ```
 Wallet
-	=>	AccountsRoot `AccountRoot[]` (array but as said is a single entry)
-				=>	Accounts `HdAccount[]`
-							=>	ExternalAddresses `HdAddress[]`
-							=>	InternalAddresses `HdAddress[]
+ => AccountsRoot `AccountRoot[]` (array but as said is a single entry)
+     => Accounts `HdAccount[]`
+       => ExternalAddresses `HdAddress[]`
+       => InternalAddresses `HdAddress[]
 ```
 
 IWalletManager/WalletManager need to be refactored in order to not expose methods tight to the model they are based on (like Json wallet file)
@@ -132,18 +132,16 @@ Currently the wallet only supports the following address types:
 - P2PK (pay to pubkey, not actually an address type)
 - P2PKH (pay to pubkey hash)
 
-Cold staking is an additional transaction type supported by the wallet I am not actually sure offhand whether
-this has its own address format. I think it does not, and there are instead two P2PKH addresses associated with
-the hot and cold wallet respectively. If that is the case then there is no additional implementation complexity
-to support cold staking from an address standpoint.
+Cold staking is an additional transaction type supported by the wallet I am not actually sure offhand whether this has its own address format.
+I think it does not, and there are instead two P2PKH addresses associated with the hot and cold wallet respectively.
+If that is the case then there is no additional implementation complexity to support cold staking from an address standpoint.
 
-Of the two address types, P2PKH is by far the most common for transacting. P2PK is legacy and generally only
-used for mining. It does not actually have an address format associated with it, and wallets/block explorers
-typically display the P2PKH address of the P2PK scriptPubKey. This is incorrect but well entrenched in
-production deployments and therefore should not be changed.
+Of the two address types, P2PKH is by far the most common for transacting. P2PK is legacy and generally only used for mining.
+It does not actually have an address format associated with it, and wallets/block explorers typically display the P2PKH address of the P2PK scriptPubKey.
+This is incorrect but well entrenched in production deployments and therefore should not be changed.
 
-Generally one refers to different types of scriptPubKeys rather than addresses, an address is just a more
-human-friendly construct. The underlying wallet design only needs to know how to derive an address for a given
+Generally one refers to different types of scriptPubKeys rather than addresses, an address is just a more human-friendly construct.
+The underlying wallet design only needs to know how to derive an address for a given
 scriptPubKey, it does not necessarily need to store the address as a separate data item.
 
 Going forwards we need to support an additional address (scriptPubKey) type:
@@ -161,12 +159,10 @@ There are other types that are not generally needed at a wallet level:
 
 - bare multisig (no address format)
 
-The difficulty these aforementioned types introduce is that we have to scan every transaction input and output
-of every incoming block in order to determine whether we are receiving funds into an address/scriptPubKey or
-paying them out. Therefore, the performance of this scanning process is critical for large wallets.
+The difficulty these aforementioned types introduce is that we have to scan every transaction input and output of every incoming block in order to determine whether we are receiving funds into an address/scriptPubKey or paying them out.
+Therefore, the performance of this scanning process is critical for large wallets.
 
-My suggestion is that we have an index of each of the types we expect to be used, so for example an incoming
-tranaction can be compared against:
+My suggestion is that we have an index of each of the types we expect to be used, so for example an incoming tranaction can be compared against:
 
 - P2PKH index
 - P2PK index
@@ -174,17 +170,14 @@ tranaction can be compared against:
 - Segwit indices
 
 These could be selectively enabled/disabled depending on the user's requirements, e.g if segwit is not used.
-For very large numbers of addresses we could perhaps investigate esoteric data structures like bloom filters
-to enable very rapid lookup with fallback to the underlying data store only where needed (depending on false
-positives or false negatives).
+For very large numbers of addresses we could perhaps investigate esoteric data structures like bloom filters to enable very rapid lookup with fallback to the underlying data store only where needed (depending on false positives or false negatives).
 
 A further difficulty is that additional data needs to be stored in order to allow particular UTXOs to be spent.
-For a P2SH address, it is vital that the corresponding script (called the redeemScript) is stored. It may make
-sense to introduce a SpendingRequirements model for complex transaction types that require such data. Each
-wallet sub-variant could expect to see different fields in this model.
+For a P2SH address, it is vital that the corresponding script (called the redeemScript) is stored.
+It may make sense to introduce a SpendingRequirements model for complex transaction types that require such data.
+Each wallet sub-variant could expect to see different fields in this model.
 
-We could also only support very limited P2SH transactions (e.g. purely the wrapped segwit version of wallet
-addresses) in order to keep initial implementation effort to a minimum.
+We could also only support very limited P2SH transactions (e.g. purely the wrapped segwit version of wallet addresses) in order to keep initial implementation effort to a minimum.
 ```
 
 
