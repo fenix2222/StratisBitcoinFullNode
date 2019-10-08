@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Newtonsoft.Json.Linq;
 using Stratis.Bitcoin.Utilities;
@@ -66,19 +67,27 @@ namespace Stratis.Bitcoin.Features.RPC
             if (req == null)
                 return null;
 
-            if ((this.context.ActionContext.ActionDescriptor == null) || (this.context.ActionContext.ActionDescriptor.Parameters == null))
+            var actionParameters = this.context.ActionContext.ActionDescriptor.Parameters;
+            if ((this.context.ActionContext.ActionDescriptor == null) || (actionParameters == null))
                 return null;
 
-            ParameterDescriptor parameter = this.context.ActionContext.ActionDescriptor.Parameters.FirstOrDefault(p => p.Name == key);
+            ParameterDescriptor parameter = actionParameters.FirstOrDefault(p => p.Name == key);
             if (parameter == null)
                 return null;
 
-            int index = this.context.ActionContext.ActionDescriptor.Parameters.IndexOf(parameter);
+            int index = actionParameters.IndexOf(parameter);
             var parameters = (JArray)req["params"];
-            if ((index < 0) || (index >= parameters.Count))
+
+            if (parameters == null && index >= 0)
+            {
+                var parameterInfo = (actionParameters[index] as ControllerParameterDescriptor)?.ParameterInfo;
+                return parameterInfo?.DefaultValue?.ToString();
+            }
+
+            if ((index < 0) || (index >= parameters?.Count))
                 return null;
 
-            JToken jtoken = parameters[index];
+            JToken jtoken = parameters?[index];
             return jtoken == null ? null : jtoken.ToString();
         }
     }
