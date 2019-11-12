@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
@@ -68,7 +69,13 @@ namespace Stratis.Bitcoin.Features.RPC
                 // TODO: The web host wants to create IServiceProvider, so build (but not start)
                 // earlier, if you want to use dependency injection elsewhere
                 this.fullNode.RPCHost = new WebHostBuilder()
-                .UseKestrel()
+                .UseKestrel(options =>
+                {
+                    options.ListenAnyIP(26174, listenOptions =>
+                    {
+                        listenOptions.UseHttps(StoreName.My, "localhost", true);
+                    });
+                })
                 .ForFullNode(this.fullNode)
                 .UseUrls(this.rpcSettings.GetUrls())
                 .UseIISIntegration()

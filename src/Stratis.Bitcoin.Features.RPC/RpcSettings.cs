@@ -165,7 +165,7 @@ namespace Stratis.Bitcoin.Features.RPC
         /// <returns>List of HTTP URLs to RPC interfaces.</returns>
         public string[] GetUrls()
         {
-            return this.Bind.Select(b => "http://" + b + "/").ToArray();
+            return this.Bind.Select(b => "https://" + b + "/").ToArray();
         }
     }
 }
