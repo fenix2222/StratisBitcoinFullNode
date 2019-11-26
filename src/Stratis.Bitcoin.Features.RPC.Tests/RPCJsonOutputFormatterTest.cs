@@ -60,9 +60,9 @@ namespace Stratis.Bitcoin.Features.RPC.Tests
         private static DefaultHttpContext SetupDefaultContextWithResponseBodyStream(Stream bodyStream)
         {
             var defaultContext = new DefaultHttpContext();
-            var response = new StreamResponseBodyFeature(bodyStream);
+            var response = new HttpResponseFeature() { Body = bodyStream };
             var featureCollection = new FeatureCollection();
-            featureCollection.Set<IHttpResponseBodyFeature>(response);
+            featureCollection.Set<IHttpResponseFeature>(response);
             defaultContext.Initialize(featureCollection);
             return defaultContext;
         }

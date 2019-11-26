@@ -1,0 +1,11 @@
+{
+    "profiles": {
+        "Stratis.CirrusD": {
+            "commandName": "Project"
+        },
+        "Stratis.CirrusD Test": {
+            "commandName": "Project",
+            "commandLineArgs": "-testnet -reindex -datadir=C:\\Temp\\Cirrus"
+        }
+    }
+}

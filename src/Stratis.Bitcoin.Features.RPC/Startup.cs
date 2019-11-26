@@ -24,11 +24,10 @@ namespace Stratis.Bitcoin.Features.RPC
             services.AddSingleton<IObjectModelValidator, NoObjectModelValidator>();
             services.AddMvcCore(o =>
                 {
-                    o.EnableEndpointRouting = false;
                     o.ValueProviderFactories.Clear();
                     o.ValueProviderFactories.Add(new RPCParametersValueProvider());
                 })
-                .AddNewtonsoftJson()
+                .AddJsonFormatters()
                 .AddFormatterMappings();
             services.TryAddEnumerable(ServiceDescriptor.Transient<IConfigureOptions<MvcOptions>, RPCJsonMvcOptionsSetup>());
 
@@ -60,15 +59,15 @@ namespace Stratis.Bitcoin.Features.RPC
             }
             authorizedAccess.AllowIp.AddRange(rpcSettings.AllowIp);
 
-            MvcNewtonsoftJsonOptions options = GetMVCOptions(serviceProvider);
+            MvcJsonOptions options = GetMVCOptions(serviceProvider);
             Serializer.RegisterFrontConverters(options.SerializerSettings, fullNode.Network);
             app.UseMiddleware(typeof(RPCMiddleware), authorizedAccess);
             app.UseRPC();
         }
 
-        private static MvcNewtonsoftJsonOptions GetMVCOptions(IServiceProvider serviceProvider)
+        private static MvcJsonOptions GetMVCOptions(IServiceProvider serviceProvider)
         {
-            return serviceProvider.GetRequiredService<IOptions<MvcNewtonsoftJsonOptions>>().Value;
+            return serviceProvider.GetRequiredService<IOptions<MvcJsonOptions>>().Value;
         }
     }
 
